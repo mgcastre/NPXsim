@@ -126,7 +126,7 @@ class ThreeStepLock:
     # TODO: Check if the level of water in the lock chamber is 
     #       enough to transit the ship (h > (draft + safety_margin)).
     #       If not, return an error message.
-    
+
     def calc_lockage_water(self, xc1=None, xc2=None,
                            h_ocean=0, h_lake=26,
                            option='chambers'):
@@ -165,14 +165,19 @@ class ThreeStepLock:
         # Extract the water level and length of the lock chambers
         if rho_lhs > rho_rhs:
             _, L, H = self.extract_dimensions(ch_lhs)
+            h = H - self.chambers[ch_lhs].sill
             rho1 = rho_rhs
             rho2 = rho_lhs
         else:
             _, L, H = self.extract_dimensions(ch_rhs)
+            h = H - self.chambers[ch_rhs].sill
             rho1 = rho_lhs
             rho2 = rho_rhs
         # Calculate the exchange coefficient
-        Eff = hd.exchange_coefficient(rho1, rho2, H, L, tOpen, eta=0.8)
+        Eff = hd.exchange_coefficient(
+            rho1=rho1, rho2=rho2, 
+            H=h, L=L, tOpen=tOpen, 
+            eta=0.8)
         return Eff
     
     def ocean_exchange_factor(self, S_ocean, tOpen, T=28):
@@ -180,9 +185,10 @@ class ThreeStepLock:
         S_lc = self.chambers['LC'].get_current_salinity()
         rho_lc = hd.Rho_from_PSU(S_lc, Temp=T)
         rho_ocean = hd.Rho_from_PSU(S_ocean, Temp=T)
+        h = H - self.chambers['LC'].sill
         Eff = hd.exchange_coefficient(
             rho1=rho_lc, rho2=rho_ocean, 
-            H=H, L=L, tOpen, eta=0.8)
+            H=h, L=L, tOpen=tOpen, eta=0.8)
         return Eff
     
     def lake_exchange_factor(self, S_lake, tOpen, T=28):
@@ -190,17 +196,19 @@ class ThreeStepLock:
         S_uc = self.chambers['UC'].get_current_salinity()
         rho_uc = hd.Rho_from_PSU(S_uc, Temp=T)
         rho_lake = hd.Rho_from_PSU(S_lake, Temp=T)
+        h = H - self.chambers['UC'].sill
         Eff = hd.exchange_coefficient(
             rho1=rho_lake, rho2=rho_uc, 
-            H=H, L=L, tOpen, eta=0.8)
+            H=h, L=L, tOpen=tOpen, eta=0.8)
         return Eff
     
     def cross_lock_head(self, cham1, cham2, tOpen):
-        Eff = self.calc_exchange_factor(cham1, cham2, tOpen)
+        Eff = self.lock_exchange_factor(cham1, cham2, tOpen)
         S_prev_cham = self.chambers[cham1].get_current_salinity()
         S_next_cham = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(E_rhs=Eff, S_rhs=S_next_cham)
         self.chambers[cham2].ship_enters(E_lhs=Eff, S_lhs=S_prev_cham)
+        print(f'{cham1}-{cham2} Eff: {Eff}')
 
     def transit_up(self, V_ship, S_ocean, S_lake, Eff=None):
 
@@ -217,19 +225,29 @@ class ThreeStepLock:
         ## 2) Transit from ocean to lower chamber
         Eff = self.ocean_exchange_factor(S_ocean, tOpen=25*60)
         self.chambers['LC'].ship_enters(E_lhs=Eff, S_lhs=S_ocean)
+        print(f'Ocean-LC Eff: {Eff}')
 
         ## 3) Equalization and transit between LC and MC
         self.equalize_levels('LC', 'MC')
         self.cross_lock_head('LC', 'MC', tOpen=25*60)
  
-        ## 5) Equalization and transit between MC and UC
+        ## 4) Equalization and transit between MC and UC
         self.equalize_levels('MC', 'UC')
         self.cross_lock_head('MC', 'UC', tOpen=25*60)
 
-        ## 7) Lift the ship to the level of the lake
+        ## 5) Lift the ship to the level of the lake
         h_lift_lake = self.calc_lockage_water(option='lake')
         self.chambers['UC'].fill_chamber(h_lift=h_lift_lake, S_lift=S_lake)
 
-        ## 8) Ship leaves the upper chamber of the lock
+        ## 6) Ship leaves the upper chamber of the lock
         Eff = self.lake_exchange_factor(S_lake, tOpen=25*60)
         self.chambers['UC'].ship_leaves(E_rhs=Eff, S_rhs=S_lake)
+        print(f'UC-Lake Eff: {Eff}')
+    
+    # TODO: Implement the transit_down method.
+
+    # TODO: Figure out a way to keep track of salinity in time. 
+    #       For instance, salinity in the middle chamber only starts
+    #       changing after the ship leaves the lower chamber, and for the
+    #       previous time steps, it remains constant.
+
