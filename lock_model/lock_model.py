@@ -58,41 +58,42 @@ class LockChamber:
         S = self.get_current_salinity()
         return V, S
 
-    def update_status(self, V, S):
-        H = (V/self.area) + self.sill
+    def update_status(self, V, S, H):
         self.water_level.append(H)
         self.water_volume.append(V)
         self.salinity.append(S)
     
     def drain_chamber(self, h_drain):
-        S_final = self.salinity[-1]
-        V_init = self.get_current_volume()
         V_drain = h_drain*self.area
-        if h_drain > 0:
-            V_final = V_init - V_drain
-            self.update_status(V=V_final, S=S_final)
+        V_init = self.water_volume[-1]
+        V_final = V_init - V_drain
+        H_final = (V_final/self.area) + self.sill
+        # Although water level changes, salinity remains constant
+        self.update_status(V=V_final, S=self.salinity[-1], H=H_final)
     
     def ship_enters(self, E_lhs, S_lhs):
-
         V_init, S_init = self.get_current_status()
         V_final = V_init - self.V_ship
         V_lhs = E_lhs*V_final
         S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
-        self.update_status(V=V_final, S=S_final)
+        # Although volume of water gets exchanged, the water level remains constant
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
     
     def fill_chamber(self, h_lift, S_lift):
         V_lift = h_lift*self.area
         V_init, S_init = self.get_current_status()
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        self.update_status(V=V_final, S=S_final)
+        H_final = (V_final/self.area) + self.sill
+        self.update_status(V=V_final, S=S_final, H=H_final)
     
     def ship_leaves(self, E_rhs, S_rhs):
         V_init, S_init = self.get_current_status()
         V_final = V_init + self.V_ship
         V_rhs = E_rhs*(V_init - self.V_ship)
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
-        self.update_status(V=V_final, S=S_final)
+        # Although volume of water gets exchanged, the water level remains constant
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
 
     def full_lock_cycle(
             self, h_lift, S_lift, S_lhs, S_rhs, 
@@ -107,7 +108,6 @@ class LockChamber:
         ):
         self.ship_enters(E_lhs, S_lhs)
         self.fill_chamber(h_lift, S_lift)
-
 
 
 class ThreeStepLock:
