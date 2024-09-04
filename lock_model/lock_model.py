@@ -3,7 +3,7 @@
 
 # Required Libraries
 import numpy as np
-from utilities import hydrodynamics as hd
+import hydrodynamics as hd
 
 # Define classes
 
@@ -31,12 +31,16 @@ class WaterSavingBasin:
 
 class LockChamber:
     
-    def __init__(self, length, width, h_sill, H0, S0):
+    def __init__(self, length, width, z_bottom, H0=None, S0=None):
         self.length = length
         self.width = width
-        self.sill = h_sill
+        self.z_bottom = z_bottom
         self.area = length*width
-        V0 = (H0 - h_sill)*self.area
+        if H0 is not None and S0 is not None:
+            self.add_initial_conditions(H0, S0)
+    
+    def add_initial_conditions(self, H0, S0):
+        V0 = (H0 - self.z_bottom)*self.area
         self.water_volume = [V0]
         self.water_level = [H0]
         self.salinity = [S0]
@@ -67,7 +71,7 @@ class LockChamber:
         V_drain = h_drain*self.area
         V_init = self.water_volume[-1]
         V_final = V_init - V_drain
-        H_final = (V_final/self.area) + self.sill
+        H_final = (V_final/self.area) + self.z_bottom
         # Although water level changes, salinity remains constant
         self.update_status(V=V_final, S=self.salinity[-1], H=H_final)
     
@@ -84,7 +88,7 @@ class LockChamber:
         V_init, S_init = self.get_current_status()
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        H_final = (V_final/self.area) + self.sill
+        H_final = (V_final/self.area) + self.z_bottom
         self.update_status(V=V_final, S=S_final, H=H_final)
     
     def ship_leaves(self, E_rhs, S_rhs):
@@ -95,152 +99,157 @@ class LockChamber:
         # Although volume of water gets exchanged, the water level remains constant
         self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
 
-    def full_lock_cycle(
-            self, h_lift, S_lift, S_lhs, S_rhs, 
-            E_lhs=0.3, E_rhs=0.3
-        ):
-        self.ship_enters(E_lhs, S_lhs)
-        self.fill_chamber(h_lift, S_lift)
-        self.ship_leaves(E_rhs, S_rhs)
-    
-    def partial_lock_cycle(
-            self, h_lift, S_lift, S_lhs, E_lhs=0.3
-        ):
-        self.ship_enters(E_lhs, S_lhs)
-        self.fill_chamber(h_lift, S_lift)
-
 
 class ThreeStepLock:
 
     def __init__(self, lock_length, lock_width, 
-                 lock_sills, initial_conditions):
+                 lock_bottom_elevs, lock_head_sills,
+                 initial_conditions=None):
+        # Initialize lock chamber objects
         self.chambers = {}
-        for xc in ['LC', 'MC', 'UC']:
-            self.chambers[xc] = LockChamber(
+        for cham in ['LC', 'MC', 'UC']:
+            self.chambers[cham] = LockChamber(
                 length=lock_length, width=lock_width,
-                H0=initial_conditions['H0'][xc], 
-                S0=initial_conditions['S0'][xc],
-                h_sill=lock_sills[xc],
+                z_bottom=lock_bottom_elevs[cham],
+                S0=None, H0=None
             )
+        # Add initial conditions if provided
+        if initial_conditions is not None:
+            self.add_initial_conditions(initial_conditions)
+        # Create attributes for lock heads
+        self.lock_heads = {'Z': lock_head_sills}
+        self.lock_heads['Chambers'] = {
+            'LH1': ['UC'], 
+            'LH2': ['MC', 'UC'],
+            'LH3': ['LC', 'MC'], 
+            'LH4': ['LC']
+        }
     
-    # TODO: Check if the level of water in the lock chamber is 
-    #       enough to transit the ship (h > (draft + safety_margin)).
-    #       If not, return an error message.
+    def add_initial_conditions(self, initial_conditions):
+        for cham in ['LC', 'MC', 'UC']:
+            self.chambers[cham].add_initial_conditions(
+                H0=initial_conditions['H0'][cham], 
+                S0=initial_conditions['S0'][cham]
+            )
 
-    def calc_lockage_water(self, xc1=None, xc2=None,
-                           h_ocean=0, h_lake=26,
-                           option='chambers'):
-        if option == 'chambers':
-            H1 = self.chambers[xc1].get_current_level()
-            H2 = self.chambers[xc2].get_current_level()
-            hld = (H2 - H1)/2
-            return hld
-        elif option == 'ocean':
-            H2 = self.chambers['LC'].get_current_level()
-            return H2 - h_ocean
-        elif option == 'lake':
-            H1 = self.chambers['UC'].get_current_level()
-            return h_lake - H1 
+    def calc_drain_lift_water(self, cham1, cham2):
+        H1 = self.chambers[cham1].get_current_level()
+        H2 = self.chambers[cham2].get_current_level()
+        hld = np.abs(H2 - H1)/2
         return hld
     
-    def equalize_levels(self, xc1, xc2):
-        hld = self.calc_lockage_water(xc1, xc2)
-        self.chambers[xc2].drain_chamber(h_drain=hld)
-        S_next_cham = self.chambers[xc2].get_current_salinity()
-        self.chambers[xc1].fill_chamber(h_lift=hld, S_lift=S_next_cham)
-        print(f'Water Exchanged between {xc1} and {xc2}: {hld}')
+    def equalize_levels(self, cham1, cham2):
+        hld = self.calc_drain_lift_water(cham1, cham2)
+        self.chambers[cham2].drain_chamber(h_drain=hld)
+        S_next_cham = self.chambers[cham2].get_current_salinity()
+        self.chambers[cham1].fill_chamber(h_lift=hld, S_lift=S_next_cham)
+        print(f'Water Exchanged between {cham1} and {cham2}: {hld}')
     
-    def extract_dimensions(self, xc):
-        W = self.chambers[xc].width
-        L = self.chambers[xc].length
-        H = self.chambers[xc].get_current_level()
+    def extract_properties(self, cham):
+        W = self.chambers[cham].width
+        L = self.chambers[cham].length
+        H = self.chambers[cham].get_current_level()
         return W, L, H
     
-    def lock_exchange_factor(self, ch_lhs, ch_rhs, tOpen, T=28):
-        # Extract salinity and calculate density values
-        S_lhs = self.chambers[ch_lhs].get_current_salinity()
-        S_rhs = self.chambers[ch_rhs].get_current_salinity()
-        rho_lhs = hd.Rho_from_PSU(S_lhs, Temp=T)
-        rho_rhs = hd.Rho_from_PSU(S_rhs, Temp=T)
-        # Extract the water level and length of the lock chambers
+    def lock_exchange_factor(self, lock_head, S_ocean=None, S_lake=None):
+        # Extract salinity and water levels
+        if lock_head == 'LH1':
+            _, L, H = self.extract_properties('UC')
+            S_lhs = self.chambers['UC'].get_current_salinity()
+            S_rhs = S_lake
+        elif lock_head == 'LH2':
+            _, L, H = self.extract_properties('MC')
+            S_lhs = self.chambers['MC'].get_current_salinity()
+            S_rhs = self.chambers['UC'].get_current_salinity()
+        elif lock_head == 'LH3':
+            _, L, H = self.extract_properties('LC')
+            S_lhs = self.chambers['LC'].get_current_salinity()
+            S_rhs = self.chambers['MC'].get_current_salinity()
+        elif lock_head == 'LH4':
+            _, L, H = self.extract_properties('LC')
+            S_rhs = self.chambers['LC'].get_current_salinity()
+            S_lhs = S_ocean
+        # Calculate density of water in the lock chambers
+        rho_lhs = hd.Rho_from_PSU(S_lhs, Temp=28)
+        rho_rhs = hd.Rho_from_PSU(S_rhs, Temp=28)
+        # Sort densities
         if rho_lhs > rho_rhs:
-            _, L, H = self.extract_dimensions(ch_lhs)
-            h = H - self.chambers[ch_lhs].sill
             rho1 = rho_rhs
             rho2 = rho_lhs
         else:
-            _, L, H = self.extract_dimensions(ch_rhs)
-            h = H - self.chambers[ch_rhs].sill
             rho1 = rho_lhs
             rho2 = rho_rhs
         # Calculate the exchange coefficient
+        tOpen = self.lock_heads['tOpen'][lock_head]
+        head = H - self.lock_heads['Z'][lock_head]
         Eff = hd.exchange_coefficient(
-            rho1=rho1, rho2=rho2, 
-            H=h, L=L, tOpen=tOpen, 
-            eta=0.8)
+            rho1=rho1, rho2=rho2, H=head, 
+            L=L, tOpen=tOpen, eta=0.8)
+        # Return the exchange coefficient
         return Eff
     
-    def ocean_exchange_factor(self, S_ocean, tOpen, T=28):
-        _, L, H = self.extract_dimensions('LC')
-        S_lc = self.chambers['LC'].get_current_salinity()
-        rho_lc = hd.Rho_from_PSU(S_lc, Temp=T)
-        rho_ocean = hd.Rho_from_PSU(S_ocean, Temp=T)
-        h = H - self.chambers['LC'].sill
-        Eff = hd.exchange_coefficient(
-            rho1=rho_lc, rho2=rho_ocean, 
-            H=h, L=L, tOpen=tOpen, eta=0.8)
-        return Eff
-    
-    def lake_exchange_factor(self, S_lake, tOpen, T=28):
-        _, L, H = self.extract_dimensions('UC')
-        S_uc = self.chambers['UC'].get_current_salinity()
-        rho_uc = hd.Rho_from_PSU(S_uc, Temp=T)
-        rho_lake = hd.Rho_from_PSU(S_lake, Temp=T)
-        h = H - self.chambers['UC'].sill
-        Eff = hd.exchange_coefficient(
-            rho1=rho_lake, rho2=rho_uc, 
-            H=h, L=L, tOpen=tOpen, eta=0.8)
-        return Eff
-    
-    def cross_lock_head(self, cham1, cham2, tOpen):
-        Eff = self.lock_exchange_factor(cham1, cham2, tOpen)
+    def cross_lock_head(self, cham1, cham2, lock_head):
+        Eff = self.lock_exchange_factor(lock_head)
         S_prev_cham = self.chambers[cham1].get_current_salinity()
         S_next_cham = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(E_rhs=Eff, S_rhs=S_next_cham)
         self.chambers[cham2].ship_enters(E_lhs=Eff, S_lhs=S_prev_cham)
         print(f'{cham1}-{cham2} Eff: {Eff}')
+    
+    def eq_and_cross(self, lock_head, direction):
+        lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
+        if direction == 'up':
+            cham1 = lower_cham
+            cham2 = upper_cham
+        elif direction == 'down':
+            cham1 = upper_cham
+            cham2 = lower_cham
+        self.equalize_levels(cham1, cham2)
+        self.cross_lock_head(cham1, cham2, lock_head)
+    
+    def transit_up(self, V_ship, t_open_dict, boundary_conditions,
+                   initial_conditions=None):
+        
+        # Extract boundary conditions
+        S_ocean = boundary_conditions['S_ocean']
+        H_ocean = boundary_conditions['H_ocean']
+        S_lake = boundary_conditions['S_lake']
+        H_lake = boundary_conditions['H_lake']
+        
+        # Overwrite chamber initial conditions if provided
+        if initial_conditions is not None:
+            self.add_initial_conditions(initial_conditions)
 
-    def transit_up(self, V_ship, S_ocean, S_lake, Eff=None):
-
-        # Define the volume of the ship transiting the lock
-        for xc in ['LC', 'MC', 'UC']:
-            self.chambers[xc].add_ship(V_ship)
+        # Add volumne of the ship transiting the lock
+        for cham in ['LC', 'MC', 'UC']:
+            self.chambers[cham].add_ship(V_ship)
+        
+        # Add gate opening times to lock heads dictionary
+        self.lock_heads['tOpen'] = t_open_dict
         
         # Lockage process
 
         ## 1) Drain the lock chamber to the level of the ocean
-        h_drain_ocean = self.calc_lockage_water(option='ocean')
-        self.chambers['LC'].drain_chamber(h_drain_ocean)
+        h_drain_ocean = self.chambers['LC'].get_current_level() - H_ocean
+        self.chambers['LC'].drain_chamber(h_drain=h_drain_ocean)
 
         ## 2) Transit from ocean to lower chamber
-        Eff = self.ocean_exchange_factor(S_ocean, tOpen=25*60)
+        Eff = self.lock_exchange_factor(lock_head='LH4', S_ocean=S_ocean)
         self.chambers['LC'].ship_enters(E_lhs=Eff, S_lhs=S_ocean)
         print(f'Ocean-LC Eff: {Eff}')
 
         ## 3) Equalization and transit between LC and MC
-        self.equalize_levels('LC', 'MC')
-        self.cross_lock_head('LC', 'MC', tOpen=25*60)
+        self.eq_and_cross(lock_head='LH3', direction='up')
  
         ## 4) Equalization and transit between MC and UC
-        self.equalize_levels('MC', 'UC')
-        self.cross_lock_head('MC', 'UC', tOpen=25*60)
+        self.eq_and_cross(lock_head='LH2', direction='up')
 
         ## 5) Lift the ship to the level of the lake
-        h_lift_lake = self.calc_lockage_water(option='lake')
+        h_lift_lake = H_lake - self.chambers['UC'].get_current_level()
         self.chambers['UC'].fill_chamber(h_lift=h_lift_lake, S_lift=S_lake)
 
         ## 6) Ship leaves the upper chamber of the lock
-        Eff = self.lake_exchange_factor(S_lake, tOpen=25*60)
+        Eff = self.lock_exchange_factor(lock_head='LH1', S_lake=S_lake)
         self.chambers['UC'].ship_leaves(E_rhs=Eff, S_rhs=S_lake)
         print(f'UC-Lake Eff: {Eff}')
     
@@ -250,4 +259,8 @@ class ThreeStepLock:
     #       For instance, salinity in the middle chamber only starts
     #       changing after the ship leaves the lower chamber, and for the
     #       previous time steps, it remains constant.
+
+    # TODO: Check equalization method. Last level of a chamber should be the
+    #       same as the initial level of the next chamber and currently this
+    #       is not the case.
 
