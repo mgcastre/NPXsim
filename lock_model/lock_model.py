@@ -67,11 +67,8 @@ class LockChamber:
         self.water_volume.append(V)
         self.salinity.append(S)
     
-    def drain_chamber(self, h_drain):
-        V_drain = h_drain*self.area
-        V_init = self.water_volume[-1]
-        V_final = V_init - V_drain
-        H_final = (V_final/self.area) + self.z_bottom
+    def drain_chamber(self, H_final):
+        V_final = (H_final - self.z_bottom)*self.area
         # Although water level changes, salinity remains constant
         self.update_status(V=V_final, S=self.salinity[-1], H=H_final)
     
@@ -83,12 +80,12 @@ class LockChamber:
         # Although volume of water gets exchanged, the water level remains constant
         self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
     
-    def fill_chamber(self, h_lift, S_lift):
-        V_lift = h_lift*self.area
+    def fill_chamber(self, H_final, S_lift):
         V_init, S_init = self.get_current_status()
+        dH = H_final - self.water_level[-1]
+        V_lift = dH*self.area
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        H_final = (V_final/self.area) + self.z_bottom
         self.update_status(V=V_final, S=S_final, H=H_final)
     
     def ship_leaves(self, E_rhs, S_rhs):
@@ -124,6 +121,8 @@ class ThreeStepLock:
             'LH3': ['LC', 'MC'], 
             'LH4': ['LC']
         }
+        # Initialize dict to store salt mass load to the lake
+        self.salt_mass_load = {'DC': [], 'VD': []}
     
     def add_initial_conditions(self, initial_conditions):
         for cham in ['LC', 'MC', 'UC']:
@@ -132,18 +131,20 @@ class ThreeStepLock:
                 S0=initial_conditions['S0'][cham]
             )
 
-    def calc_drain_lift_water(self, cham1, cham2):
+    def calc_equalization_level(self, cham1, cham2):
+        A1 = self.chambers[cham1].area
+        A2 = self.chambers[cham2].area
         H1 = self.chambers[cham1].get_current_level()
         H2 = self.chambers[cham2].get_current_level()
-        hld = np.abs(H2 - H1)/2
-        return hld
+        Hf = (A1*H1 + A2*H2) / (A1 + A2)
+        return Hf
     
     def equalize_levels(self, cham1, cham2):
-        hld = self.calc_drain_lift_water(cham1, cham2)
-        self.chambers[cham2].drain_chamber(h_drain=hld)
+        Hf = self.calc_equalization_level(cham1, cham2)
+        self.chambers[cham2].drain_chamber(H_final=Hf)
         S_next_cham = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].fill_chamber(h_lift=hld, S_lift=S_next_cham)
-        print(f'Water Exchanged between {cham1} and {cham2}: {hld}')
+        self.chambers[cham1].fill_chamber(H_final=Hf, S_lift=S_next_cham)
+        return Hf
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
@@ -194,7 +195,7 @@ class ThreeStepLock:
         S_next_cham = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(E_rhs=Eff, S_rhs=S_next_cham)
         self.chambers[cham2].ship_enters(E_lhs=Eff, S_lhs=S_prev_cham)
-        print(f'{cham1}-{cham2} Eff: {Eff}')
+        return Eff
     
     def eq_and_cross(self, lock_head, direction):
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
@@ -204,8 +205,9 @@ class ThreeStepLock:
         elif direction == 'down':
             cham1 = upper_cham
             cham2 = lower_cham
-        self.equalize_levels(cham1, cham2)
-        self.cross_lock_head(cham1, cham2, lock_head)
+        Hf = self.equalize_levels(cham1, cham2)
+        Eff = self.cross_lock_head(cham1, cham2, lock_head)
+        return Hf, Eff
     
     def transit_up(self, V_ship, t_open_dict, boundary_conditions,
                    initial_conditions=None):
@@ -230,28 +232,55 @@ class ThreeStepLock:
         # Lockage process
 
         ## 1) Drain the lock chamber to the level of the ocean
-        h_drain_ocean = self.chambers['LC'].get_current_level() - H_ocean
-        self.chambers['LC'].drain_chamber(h_drain=h_drain_ocean)
+        self.chambers['LC'].drain_chamber(H_final=H_ocean)
 
         ## 2) Transit from ocean to lower chamber
-        Eff = self.lock_exchange_factor(lock_head='LH4', S_ocean=S_ocean)
-        self.chambers['LC'].ship_enters(E_lhs=Eff, S_lhs=S_ocean)
-        print(f'Ocean-LC Eff: {Eff}')
+        E_lh4 = self.lock_exchange_factor(lock_head='LH4', S_ocean=S_ocean)
+        self.chambers['LC'].ship_enters(E_lhs=E_lh4, S_lhs=S_ocean)
 
         ## 3) Equalization and transit between LC and MC
-        self.eq_and_cross(lock_head='LH3', direction='up')
+        H_lh3, E_lh3 = self.eq_and_cross(lock_head='LH3', direction='up')
  
         ## 4) Equalization and transit between MC and UC
-        self.eq_and_cross(lock_head='LH2', direction='up')
+        H_lh2, E_lh2 = self.eq_and_cross(lock_head='LH2', direction='up')
 
         ## 5) Lift the ship to the level of the lake
-        h_lift_lake = H_lake - self.chambers['UC'].get_current_level()
-        self.chambers['UC'].fill_chamber(h_lift=h_lift_lake, S_lift=S_lake)
+        self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
 
         ## 6) Ship leaves the upper chamber of the lock
-        Eff = self.lock_exchange_factor(lock_head='LH1', S_lake=S_lake)
-        self.chambers['UC'].ship_leaves(E_rhs=Eff, S_rhs=S_lake)
-        print(f'UC-Lake Eff: {Eff}')
+        E_lh1 = self.lock_exchange_factor(lock_head='LH1', S_lake=S_lake)
+        self.chambers['UC'].ship_leaves(E_rhs=E_lh1, S_rhs=S_lake)
+
+        # Calculate salt mass load to the lake
+        S_chamber = self.chambers['UC'].get_current_salinity()
+        V_chamber = self.chambers['UC'].get_current_volume()
+        rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=28)
+        rho_lake = hd.Rho_from_PSU(S_lake, Temp=28)
+        V_ex = E_lh1*(V_chamber - V_ship)
+        m_dc = V_ex*(rho_chamber - rho_lake)
+        m_vd = (rho_lake - rho_chamber)*V_ship
+        self.salt_mass_load['DC'].append(m_dc)
+        self.salt_mass_load['VD'].append(m_vd)
+    
+    def get_salt_load(self, Total=False, Units='kg'):
+        """
+        Returns the salt mass load etering the lake from the upper chamber.
+        By default it returns a tupple with two elements: The first is the 
+        salt mass load due to density current (DC) and the second is the salt
+        mass load due to vessel displacement (VD). If Total is set to True, it
+        returns the sum of both. Optionally, the units of the salt mass load 
+        can be specified. By default, it returns the mass in kilograms, but
+        it can also be returned in tonnes by setting Units to 'ton'.
+        """	
+        sm_dc = np.array(self.salt_mass_load['DC'])
+        sm_vd = np.array(self.salt_mass_load['VD'])
+        if Units == 'ton':
+            sm_dc = sm_dc/1000
+            sm_vd = sm_vd/1000
+        if Total:
+            return sm_dc + sm_vd
+        else:
+            return sm_dc, sm_vd
     
     # TODO: Implement the transit_down method.
 
