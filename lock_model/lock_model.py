@@ -254,9 +254,9 @@ class ThreeStepLock:
         # Calculate salt mass load to the lake
         S_chamber = self.chambers['UC'].get_current_salinity()
         V_chamber = self.chambers['UC'].get_current_volume()
+        V_ex = E_lh1*V_chamber # Ship is already in chamber
         rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=28)
         rho_lake = hd.Rho_from_PSU(S_lake, Temp=28)
-        V_ex = E_lh1*(V_chamber - V_ship)
         m_dc = V_ex*(rho_chamber - rho_lake)
         m_vd = (rho_lake - rho_chamber)*V_ship
         self.salt_mass_load['DC'].append(m_dc)
