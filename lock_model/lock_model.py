@@ -91,7 +91,7 @@ class LockChamber:
     def ship_leaves(self, E_rhs, S_rhs):
         V_init, S_init = self.get_current_status()
         V_final = V_init + self.V_ship
-        V_rhs = E_rhs*(V_init - self.V_ship)
+        V_rhs = E_rhs*V_init
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
         # Although volume of water gets exchanged, the water level remains constant
         self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
