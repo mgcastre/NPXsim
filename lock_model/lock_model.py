@@ -98,8 +98,7 @@ class LockChamber:
 class ThreeStepLock:
 
     def __init__(self, lock_length, lock_width, 
-                 lock_bottom_elevs, lock_head_sills,
-                 initial_conditions=None):
+                 lock_bottom_elevs, lock_head_sills):
         # Initialize lock chamber objects
         self.chambers = {}
         for cham in ['LC', 'MC', 'UC']:
@@ -108,9 +107,6 @@ class ThreeStepLock:
                 z_bottom=lock_bottom_elevs[cham],
                 S0=None, H0=None
             )
-        # Add initial conditions if provided
-        if initial_conditions is not None:
-            self.add_initial_conditions(initial_conditions)
         # Create attributes for lock heads
         self.lock_heads = {'Z': lock_head_sills}
         self.lock_heads['Chambers'] = {
@@ -122,12 +118,63 @@ class ThreeStepLock:
         # Initialize dict to store salt mass load to the lake
         self.salt_mass_load = {'DC': [], 'VD': []}
     
-    def add_initial_conditions(self, initial_conditions):
+    def calc_operational_levels(self, H_lake, H_ocean):
+        # Extract chamber areas
+        Au = self.chambers['UC'].area
+        Am = self.chambers['MC'].area
+        Al = self.chambers['LC'].area
+        # Calculate operational levels
+        denominator = ((Am + Al)*(Au + Am)/Am) - Am
+        numerator = H_ocean*Al + (Am + Al)*H_lake*Au/Am
+        uc_high = H_lake
+        uc_low = numerator/denominator
+        mc_high = uc_low
+        mc_low = ((Au + Am)/Am)*mc_high - H_lake*Au/Am
+        lc_high = mc_low
+        lc_low = H_ocean
+        # Store operational levels in a dictionary
+        operational_levels = {}
+        operational_levels['UC'] = (uc_low, uc_high)
+        operational_levels['MC'] = (mc_low, mc_high)
+        operational_levels['LC'] = (lc_low, lc_high)
+        # Return operational levels
+        return operational_levels
+    
+    def add_initial_water_levels(self, boundary_conditions, direction):
+        cham_levels = {}
+        H_lake = boundary_conditions['H_lake']
+        H_ocean = boundary_conditions['H_ocean']
+        op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        if direction == 'up':
+            # For uplockage, the lower chamber is at the level of the ocean
+            # and the rest of the chambers are at their higher operational levels.
+            cham_levels['LC'] = H_ocean
+            cham_levels['MC'] = op_levels['MC'][1]
+            cham_levels['UC'] = op_levels['UC'][1]
+        if direction == 'down':
+            # For downlockage, the upper chamber is at the level of the lake
+            # and the rest of the chambers are at their lower operational levels.
+            cham_levels['UC'] = H_lake
+            cham_levels['MC'] = op_levels['MC'][0]
+            cham_levels['LC'] = op_levels['LC'][0]
+        # Add initial conditions to the lock chambers.
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham].add_initial_conditions(
-                H0=initial_conditions['H0'][cham], 
-                S0=initial_conditions['S0'][cham]
-            )
+                H0=cham_levels[cham], S0=0)
+    
+    def turnaround(self, H_lake, H_ocean, direction):
+        cham_levels = {}
+        op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        if direction == 'up':
+            cham_levels['UC'] = op_levels['UC'][0]
+            cham_levels['MC'] = op_levels['MC'][1]
+            cham_levels['LC'] = op_levels['LC'][1]
+        if direction == 'down':
+            cham_levels['UC'] = op_levels['UC'][1]
+            cham_levels['MC'] = op_levels['MC'][0]
+            cham_levels['LC'] = op_levels['LC'][0]
+        # TODO: Figure out how to properly do the salinity mass balance 
+        #       and water balance calculations for the turnaround process.
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
