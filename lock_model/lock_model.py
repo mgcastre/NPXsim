@@ -227,11 +227,11 @@ class ThreeStepLock:
         Hf = (A1*H1 + A2*H2) / (A1 + A2)
         return Hf
     
-    def equalize_levels(self, cham1, cham2, return_level=False):
-        Hf = self.calc_equalization_level(cham1, cham2)
-        self.chambers[cham2].drain_chamber(H_final=Hf)
-        S_next_cham = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].fill_chamber(H_final=Hf, S_lift=S_next_cham)
+    def equalize_levels(self, lower_cham, upper_cham, return_level=False):
+        Hf = self.calc_equalization_level(lower_cham, upper_cham)
+        self.chambers[upper_cham].drain_chamber(H_final=Hf)
+        S_next_cham = self.chambers[upper_cham].get_current_salinity()
+        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham)
         if return_level:
             return Hf
     
@@ -243,13 +243,13 @@ class ThreeStepLock:
     
     def equalize_and_cross(self, lock_head, direction):
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
+        self.equalize_levels(lower_cham, upper_cham)
         if direction == 'up':
             cham1 = lower_cham
             cham2 = upper_cham
         elif direction == 'down':
             cham1 = upper_cham
             cham2 = lower_cham
-        self.equalize_levels(cham1, cham2)
         h_sill = self.lock_heads['Z'][lock_head]
         Area = self.chambers[upper_cham].area
         H = self.chambers[upper_cham].get_current_level()
