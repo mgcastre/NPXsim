@@ -72,10 +72,9 @@ class LockChamber:
         # Although water level changes, salinity remains constant
         self.update_status(V=V_final, S=self.salinity[-1], H=H_final)
     
-    def ship_enters(self, E_lhs, S_lhs):
+    def ship_enters(self, V_lhs, S_lhs):
         V_init, S_init = self.get_current_status()
         V_final = V_init - self.V_ship
-        V_lhs = E_lhs*V_final
         S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
         # Although volume of water gets exchanged, the water level remains constant
         self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
@@ -88,10 +87,9 @@ class LockChamber:
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
         self.update_status(V=V_final, S=S_final, H=H_final)
     
-    def ship_leaves(self, E_rhs, S_rhs):
+    def ship_leaves(self, V_rhs, S_rhs):
         V_init, S_init = self.get_current_status()
         V_final = V_init + self.V_ship
-        V_rhs = E_rhs*V_init
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
         # Although volume of water gets exchanged, the water level remains constant
         self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
@@ -130,21 +128,6 @@ class ThreeStepLock:
                 H0=initial_conditions['H0'][cham], 
                 S0=initial_conditions['S0'][cham]
             )
-
-    def calc_equalization_level(self, cham1, cham2):
-        A1 = self.chambers[cham1].area
-        A2 = self.chambers[cham2].area
-        H1 = self.chambers[cham1].get_current_level()
-        H2 = self.chambers[cham2].get_current_level()
-        Hf = (A1*H1 + A2*H2) / (A1 + A2)
-        return Hf
-    
-    def equalize_levels(self, cham1, cham2):
-        Hf = self.calc_equalization_level(cham1, cham2)
-        self.chambers[cham2].drain_chamber(H_final=Hf)
-        S_next_cham = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].fill_chamber(H_final=Hf, S_lift=S_next_cham)
-        return Hf
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
@@ -152,12 +135,12 @@ class ThreeStepLock:
         H = self.chambers[cham].get_current_level()
         return W, L, H
     
-    def lock_exchange_factor(self, lock_head, S_ocean=None, S_lake=None):
+    def lock_exchange_factor(self, lock_head, S_boundary=None):
         # Extract salinity and water levels
         if lock_head == 'LH1':
             _, L, H = self.extract_properties('UC')
             S_lhs = self.chambers['UC'].get_current_salinity()
-            S_rhs = S_lake
+            S_rhs = S_boundary
         elif lock_head == 'LH2':
             _, L, H = self.extract_properties('MC')
             S_lhs = self.chambers['MC'].get_current_salinity()
@@ -169,7 +152,7 @@ class ThreeStepLock:
         elif lock_head == 'LH4':
             _, L, H = self.extract_properties('LC')
             S_rhs = self.chambers['LC'].get_current_salinity()
-            S_lhs = S_ocean
+            S_lhs = S_boundary
         # Calculate density of water in the lock chambers
         rho_lhs = hd.Rho_from_PSU(S_lhs, Temp=28)
         rho_rhs = hd.Rho_from_PSU(S_rhs, Temp=28)
@@ -189,15 +172,29 @@ class ThreeStepLock:
         # Return the exchange coefficient
         return Eff
     
-    def cross_lock_head(self, cham1, cham2, lock_head):
-        Eff = self.lock_exchange_factor(lock_head)
-        S_prev_cham = self.chambers[cham1].get_current_salinity()
-        S_next_cham = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].ship_leaves(E_rhs=Eff, S_rhs=S_next_cham)
-        self.chambers[cham2].ship_enters(E_lhs=Eff, S_lhs=S_prev_cham)
-        return Eff
+    def calc_equalization_level(self, cham1, cham2):
+        A1 = self.chambers[cham1].area
+        A2 = self.chambers[cham2].area
+        H1 = self.chambers[cham1].get_current_level()
+        H2 = self.chambers[cham2].get_current_level()
+        Hf = (A1*H1 + A2*H2) / (A1 + A2)
+        return Hf
     
-    def eq_and_cross(self, lock_head, direction):
+    def equalize_levels(self, cham1, cham2, return_level=False):
+        Hf = self.calc_equalization_level(cham1, cham2)
+        self.chambers[cham2].drain_chamber(H_final=Hf)
+        S_next_cham = self.chambers[cham2].get_current_salinity()
+        self.chambers[cham1].fill_chamber(H_final=Hf, S_lift=S_next_cham)
+        if return_level:
+            return Hf
+    
+    def cross_lock_head(self, cham1, cham2, V_ex):
+        S_cham1 = self.chambers[cham1].get_current_salinity()
+        S_cham2 = self.chambers[cham2].get_current_salinity()
+        self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2)
+        self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1)
+    
+    def equalize_and_cross(self, lock_head, direction):
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
         if direction == 'up':
             cham1 = lower_cham
@@ -205,9 +202,13 @@ class ThreeStepLock:
         elif direction == 'down':
             cham1 = upper_cham
             cham2 = lower_cham
-        Hf = self.equalize_levels(cham1, cham2)
-        Eff = self.cross_lock_head(cham1, cham2, lock_head)
-        return Hf, Eff
+        self.equalize_levels(cham1, cham2)
+        h_sill = self.lock_heads['Z'][lock_head]
+        Area = self.chambers[upper_cham].area
+        H = self.chambers[upper_cham].get_current_level()
+        Eff = self.lock_exchange_factor(lock_head)
+        V_ex = Eff*Area*(H - h_sill)
+        self.cross_lock_head(cham1, cham2, V_ex)
     
     def transit_up(self, V_ship, t_open_dict, boundary_conditions,
                    initial_conditions=None):
@@ -223,6 +224,7 @@ class ThreeStepLock:
             self.add_initial_conditions(initial_conditions)
 
         # Add volumne of the ship transiting the lock
+        self.V_ship = V_ship
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham].add_ship(V_ship)
         
@@ -235,29 +237,29 @@ class ThreeStepLock:
         self.chambers['LC'].drain_chamber(H_final=H_ocean)
 
         ## 2) Transit from ocean to lower chamber
-        E_lh4 = self.lock_exchange_factor(lock_head='LH4', S_ocean=S_ocean)
-        self.chambers['LC'].ship_enters(E_lhs=E_lh4, S_lhs=S_ocean)
+        Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
+        V_ex_ocean = Eff*(self.chambers['LC'].get_current_volume())
+        self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean)
 
         ## 3) Equalization and transit between LC and MC
-        H_lh3, E_lh3 = self.eq_and_cross(lock_head='LH3', direction='up')
+        self.equalize_and_cross(lock_head='LH3', direction='up')
  
         ## 4) Equalization and transit between MC and UC
-        H_lh2, E_lh2 = self.eq_and_cross(lock_head='LH2', direction='up')
+        self.equalize_and_cross(lock_head='LH2', direction='up')
 
         ## 5) Lift the ship to the level of the lake
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
 
         ## 6) Ship leaves the upper chamber of the lock
-        E_lh1 = self.lock_exchange_factor(lock_head='LH1', S_lake=S_lake)
-        self.chambers['UC'].ship_leaves(E_rhs=E_lh1, S_rhs=S_lake)
+        Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
+        V_ex_lake = Eff*self.chambers['UC'].get_current_volume()
+        self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake)
 
         # Calculate salt mass load to the lake
         S_chamber = self.chambers['UC'].get_current_salinity()
-        V_chamber = self.chambers['UC'].get_current_volume()
-        V_ex = E_lh1*V_chamber # Ship is already in chamber
         rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=28)
         rho_lake = hd.Rho_from_PSU(S_lake, Temp=28)
-        m_dc = V_ex*(rho_chamber - rho_lake)
+        m_dc = V_ex_lake*(rho_chamber - rho_lake)
         m_vd = (rho_lake - rho_chamber)*V_ship
         self.salt_mass_load['DC'].append(m_dc)
         self.salt_mass_load['VD'].append(m_vd)
@@ -283,13 +285,4 @@ class ThreeStepLock:
             return sm_dc, sm_vd
     
     # TODO: Implement the transit_down method.
-
-    # TODO: Figure out a way to keep track of salinity in time. 
-    #       For instance, salinity in the middle chamber only starts
-    #       changing after the ship leaves the lower chamber, and for the
-    #       previous time steps, it remains constant.
-
-    # TODO: Check equalization method. Last level of a chamber should be the
-    #       same as the initial level of the next chamber and currently this
-    #       is not the case.
 
