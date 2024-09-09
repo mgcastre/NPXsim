@@ -257,18 +257,25 @@ class ThreeStepLock:
         V_ex = Eff*Area*(H - h_sill)
         self.cross_lock_head(cham1, cham2, V_ex)
     
-    def transit_up(self, V_ship, t_open_dict, boundary_conditions,
-                   initial_conditions=None):
+    def calc_salt_mass_load(self, S_lake, V_ex_lake, V_ship, direction, T=28):
+        S_chamber = self.chambers['UC'].get_current_salinity()
+        rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=T)
+        rho_lake = hd.Rho_from_PSU(S_lake, Temp=T)
+        m_dc = V_ex_lake*(rho_chamber - rho_lake)
+        if direction == 'up':
+            m_vd = (rho_lake - rho_chamber)*V_ship
+        elif direction == 'down':
+            m_vd = (rho_chamber - rho_lake)*V_ship
+        self.salt_mass_load['DC'].append(m_dc)
+        self.salt_mass_load['VD'].append(m_vd)
+    
+    def transit_up(self, V_ship, t_open_dict, boundary_conditions):
         
         # Extract boundary conditions
         S_ocean = boundary_conditions['S_ocean']
         H_ocean = boundary_conditions['H_ocean']
         S_lake = boundary_conditions['S_lake']
         H_lake = boundary_conditions['H_lake']
-        
-        # Overwrite chamber initial conditions if provided
-        if initial_conditions is not None:
-            self.add_initial_conditions(initial_conditions)
 
         # Add volumne of the ship transiting the lock
         self.V_ship = V_ship
@@ -303,13 +310,51 @@ class ThreeStepLock:
         self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake)
 
         # Calculate salt mass load to the lake
-        S_chamber = self.chambers['UC'].get_current_salinity()
-        rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=28)
-        rho_lake = hd.Rho_from_PSU(S_lake, Temp=28)
-        m_dc = V_ex_lake*(rho_chamber - rho_lake)
-        m_vd = (rho_lake - rho_chamber)*V_ship
-        self.salt_mass_load['DC'].append(m_dc)
-        self.salt_mass_load['VD'].append(m_vd)
+        self.calc_salt_mass_load(S_lake, V_ex_lake, V_ship, direction='up')
+
+    
+    def transit_down(self, V_ship, t_open_dict, boundary_conditions):
+            
+        # Extract boundary conditions
+        S_ocean = boundary_conditions['S_ocean']
+        H_ocean = boundary_conditions['H_ocean']
+        S_lake = boundary_conditions['S_lake']
+        H_lake = boundary_conditions['H_lake']
+
+        # Add volumne of the ship transiting the lock
+        self.V_ship = V_ship
+        for cham in ['LC', 'MC', 'UC']:
+            self.chambers[cham].add_ship(V_ship)
+        
+        # Add gate opening times to lock heads dictionary
+        self.lock_heads['tOpen'] = t_open_dict
+
+        # Lockage process
+
+        ## 1) Lift upper chamber to level of the lake
+        self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
+
+        ## 2) Transit  from lake to upper chamber
+        Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
+        V_ex_lake = Eff*(self.chambers['UC'].get_current_volume())
+        self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake)
+
+        ## 3) Equalization and transit between UC and MC
+        self.equalize_and_cross(lock_head='LH2', direction='down')
+ 
+        ## 4) Equalization and transit between MC and LC
+        self.equalize_and_cross(lock_head='LH3', direction='down')
+
+        ## 5) Drain to the level of the ocean
+        self.chambers['LC'].drain_chamber(H_final=H_ocean)
+
+        ## 6) Ship leaves lower chamber of the lock
+        Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
+        V_ex_ocean = Eff*self.chambers['LC'].get_current_volume()
+        self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean)
+
+        # Calculate salt mass load to the lake
+        self.calc_salt_mass_load(S_lake, V_ex_lake, V_ship, direction='down')
     
     def get_salt_load(self, Total=False, Units='kg'):
         """
