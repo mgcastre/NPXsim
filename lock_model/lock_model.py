@@ -116,7 +116,7 @@ class ThreeStepLock:
             'LH4': ['LC']
         }
         # Initialize dict to store salt mass load to the lake
-        self.salt_mass_load = {'DC': [], 'VD': []}
+        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 'V_ex': []}
     
     def calc_operational_levels(self, H_lake, H_ocean):
         # Extract chamber areas
@@ -257,15 +257,14 @@ class ThreeStepLock:
         V_ex = Eff*Area*(H - h_sill)
         self.cross_lock_head(cham1, cham2, V_ex)
     
-    def calc_salt_mass_load(self, S_lake, V_ex_lake, V_ship, direction, T=28):
-        S_chamber = self.chambers['UC'].get_current_salinity()
+    def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction, T=28):
         rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=T)
         rho_lake = hd.Rho_from_PSU(S_lake, Temp=T)
         m_dc = V_ex_lake*(rho_chamber - rho_lake)
         if direction == 'up':
-            m_vd = (rho_lake - rho_chamber)*V_ship
+            m_vd = (rho_lake - rho_chamber)*self.V_ship
         elif direction == 'down':
-            m_vd = (rho_chamber - rho_lake)*V_ship
+            m_vd = (rho_chamber - rho_lake)*self.V_ship
         self.salt_mass_load['DC'].append(m_dc)
         self.salt_mass_load['VD'].append(m_vd)
     
@@ -304,15 +303,18 @@ class ThreeStepLock:
         ## 5) Lift the ship to the level of the lake
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
 
-        ## 6) Ship leaves the upper chamber of the lock
+        ## 6) Gates at LH1 open and salt mass enters the lake
         Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
         V_ex_lake = Eff*self.chambers['UC'].get_current_volume()
+        S_chamber = self.chambers['UC'].get_current_salinity()
+        self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='up')
+        self.salt_mass_load['V_ex'].append(V_ex_lake)
+        self.salt_mass_load['Eff'].append(Eff)
+
+        ## 7) Ship leaves the upper chamber of the lock and salinity in UC changes
         self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake)
+        
 
-        # Calculate salt mass load to the lake
-        self.calc_salt_mass_load(S_lake, V_ex_lake, V_ship, direction='up')
-
-    
     def transit_down(self, V_ship, t_open_dict, boundary_conditions):
             
         # Extract boundary conditions
@@ -334,27 +336,30 @@ class ThreeStepLock:
         ## 1) Lift upper chamber to level of the lake
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
 
-        ## 2) Transit  from lake to upper chamber
+        ## 2) Gates at LH1 open and salt mass enters the lake
         Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
         V_ex_lake = Eff*(self.chambers['UC'].get_current_volume())
+        S_chamber = self.chambers['UC'].get_current_salinity()
+        self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='down')
+        self.salt_mass_load['V_ex'].append(V_ex_lake)
+        self.salt_mass_load['Eff'].append(Eff)
+
+        ## 3) Ship leaves upper chamber of the lock and salinity in UC changes
         self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake)
 
-        ## 3) Equalization and transit between UC and MC
+        ## 4) Equalization and transit between UC and MC
         self.equalize_and_cross(lock_head='LH2', direction='down')
  
-        ## 4) Equalization and transit between MC and LC
+        ## 5) Equalization and transit between MC and LC
         self.equalize_and_cross(lock_head='LH3', direction='down')
 
-        ## 5) Drain to the level of the ocean
+        ## 6) Drain to the level of the ocean
         self.chambers['LC'].drain_chamber(H_final=H_ocean)
 
-        ## 6) Ship leaves lower chamber of the lock
+        ## 7) Ship leaves lower chamber of the lock
         Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
         V_ex_ocean = Eff*self.chambers['LC'].get_current_volume()
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean)
-
-        # Calculate salt mass load to the lake
-        self.calc_salt_mass_load(S_lake, V_ex_lake, V_ship, direction='down')
     
     def get_salt_load(self, Total=False, Units='kg'):
         """
