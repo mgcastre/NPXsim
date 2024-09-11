@@ -254,7 +254,8 @@ class ThreeStepLock:
         Area = self.chambers[upper_cham].area
         H = self.chambers[upper_cham].get_current_level()
         Eff = self.lock_exchange_factor(lock_head)
-        V_ex = Eff*Area*(H - h_sill)
+        # V_ex = Eff*Area*(H - h_sill)
+        V_ex = self.chambers[upper_cham].get_current_volume()*Eff
         self.cross_lock_head(cham1, cham2, V_ex)
     
     def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction, T=28):
