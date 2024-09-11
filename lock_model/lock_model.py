@@ -140,7 +140,7 @@ class ThreeStepLock:
         # Return operational levels
         return operational_levels
     
-    def add_initial_water_levels(self, boundary_conditions, direction):
+    def initialize(self, boundary_conditions, salinities, direction):
         cham_levels = {}
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
@@ -160,7 +160,8 @@ class ThreeStepLock:
         # Add initial conditions to the lock chambers.
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham].add_initial_conditions(
-                H0=cham_levels[cham], S0=0)
+                H0=cham_levels[cham], S0=salinities[cham]
+            )
     
     def turnaround(self, H_lake, H_ocean, direction):
         cham_levels = {}
