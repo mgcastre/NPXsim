@@ -262,8 +262,7 @@ class ThreeStepLock:
             cham2 = lower_cham
         ## 2.2. Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head)
-        V_eff = self.chambers[upper_cham].get_current_volume()
-        V_ex = V_eff*Eff
+        V_ex = Eff*self.chambers[cham1].get_current_volume()
         ## 2.3 Move ship between chambers
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
@@ -281,10 +280,17 @@ class ThreeStepLock:
         self.salt_mass_load['DC'].append(m_dc)
         self.salt_mass_load['VD'].append(m_vd)
     
+    def calc_volume_exchanged(Eff, cham):
+        Hf = self.chambers[cham].get_current_level()
+        H = Hf - self.chambers[cham].z_bottom
+        A = self.chambers[cham].area
+        V_ex = Eff*(A*H - self.V_ship)
+        return V_ex
+    
     def exchange_with_lake(self, S_lake,  direction):
         # Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
-        V_ex_lake = Eff*(self.chambers['UC'].get_current_volume())
+        V_ex_lake = self.calc_volume_exchanged(Eff=Eff, cham='UC')
         # Calculate salt mass load to the lake
         S_chamber = self.chambers['UC'].get_current_salinity()
         self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction)
@@ -295,7 +301,7 @@ class ThreeStepLock:
     
     def exchange_with_ocean(self, S_ocean):
         Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
-        V_ex_ocean = Eff*(self.chambers['LC'].get_current_volume())
+        V_ex_ocean = self.calc_volume_exchanged(Eff=Eff, cham='LC')
         return V_ex_ocean
     
     def transit_up(self, V_ship, t_open_dict, boundary_conditions):
