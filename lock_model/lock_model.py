@@ -115,8 +115,6 @@ class ThreeStepLock:
             'LH3': ['LC', 'MC'], 
             'LH4': ['LC']
         }
-        # Initialize dict to store salt mass load to the lake
-        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 'V_ex': []}
     
     def calc_operational_levels(self, H_lake, H_ocean):
         # Extract chamber areas
@@ -162,6 +160,8 @@ class ThreeStepLock:
             self.chambers[cham].add_initial_conditions(
                 H0=cham_levels[cham], S0=salinities[cham]
             )
+        # Initialize dict to store salt mass load to the lake
+        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 'V_ex': []}
     
     def turnaround(self, H_lake, H_ocean, direction):
         cham_levels = {}
