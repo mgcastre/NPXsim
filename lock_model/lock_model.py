@@ -236,12 +236,6 @@ class ThreeStepLock:
         if return_level:
             return Hf
     
-    def cross_lock_head(self, cham1, cham2, V_ex):
-        S_cham1 = self.chambers[cham1].get_current_salinity()
-        S_cham2 = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2)
-        self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1)
-    
     def equalize_and_cross(self, lock_head, direction):
         # 1. Equalize levels between chambers
         ## 1.1 Calculate final level for equalization
@@ -262,7 +256,7 @@ class ThreeStepLock:
             cham2 = lower_cham
         ## 2.2. Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head)
-        V_ex = Eff*self.chambers[cham1].get_current_volume()
+        V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
         ## 2.3 Move ship between chambers
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
@@ -280,9 +274,12 @@ class ThreeStepLock:
         self.salt_mass_load['DC'].append(m_dc)
         self.salt_mass_load['VD'].append(m_vd)
     
-    def calc_volume_exchanged(Eff, cham):
+    def calc_volume_exchanged(self, Eff, cham):
         Hf = self.chambers[cham].get_current_level()
-        H = Hf - self.chambers[cham].z_bottom
+        if cham == 'UC':
+            H = Hf - self.lock_heads['Z']['LH1']
+        else:
+            H = Hf - self.chambers[cham].z_bottom
         A = self.chambers[cham].area
         V_ex = Eff*(A*H - self.V_ship)
         return V_ex
