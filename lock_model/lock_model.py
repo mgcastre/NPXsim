@@ -161,7 +161,8 @@ class ThreeStepLock:
                 H0=cham_levels[cham], S0=salinities[cham]
             )
         # Initialize dict to store salt mass load to the lake
-        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 'V_ex': []}
+        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
+                               'V_ex': [], 'S_uc': []}
     
     def turnaround(self, H_lake, H_ocean, direction):
         cham_levels = {}
@@ -292,6 +293,7 @@ class ThreeStepLock:
         S_chamber = self.chambers['UC'].get_current_salinity()
         self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction)
         # Return and append values
+        self.salt_mass_load['S_uc'].append(S_chamber)
         self.salt_mass_load['V_ex'].append(V_ex_lake)
         self.salt_mass_load['Eff'].append(Eff)
         return V_ex_lake
@@ -383,6 +385,15 @@ class ThreeStepLock:
         for chamber in ['LC', 'MC', 'UC']:
             salinities[chamber] = self.chambers[chamber].salinity
         return salinities
+    
+    def get_water_levels(self):
+        """
+        Returns the water level of each chamber in the lock model.
+        """
+        water_levels = {}
+        for chamber in ['LC', 'MC', 'UC']:
+            water_levels[chamber] = self.chambers[chamber].water_level
+        return water_levels
     
     # TODO: Implement the transit_down method.
 
