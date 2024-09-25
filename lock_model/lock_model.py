@@ -277,11 +277,11 @@ class ThreeStepLock:
     def calc_volume_exchanged(self, Eff, cham):
         Hf = self.chambers[cham].get_current_level()
         if cham == 'UC':
-            H = Hf - self.lock_heads['Z']['LH1']
+            h = Hf - self.lock_heads['Z']['LH1']
         else:
-            H = Hf - self.chambers[cham].z_bottom
+            h = Hf - self.chambers[cham].z_bottom
         A = self.chambers[cham].area
-        V_ex = Eff*(A*H - self.V_ship)
+        V_ex = Eff*(A*h - self.V_ship)
         return V_ex
     
     def exchange_with_lake(self, S_lake,  direction):
