@@ -138,7 +138,7 @@ class ThreeStepLock:
         # Return operational levels
         return operational_levels
     
-    def initialize(self, boundary_conditions, salinities, direction):
+    def initialize(self, boundary_conditions, salinities, direction, temperature=28):
         cham_levels = {}
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
@@ -160,6 +160,8 @@ class ThreeStepLock:
             self.chambers[cham].add_initial_conditions(
                 H0=cham_levels[cham], S0=salinities[cham]
             )
+        # Pass the temperature to the class attribute
+        self.T = temperature
         # Initialize dict to store salt mass load to the lake
         self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
                                'V_ex': [], 'S_uc': []}
@@ -203,8 +205,8 @@ class ThreeStepLock:
             S_rhs = self.chambers['LC'].get_current_salinity()
             S_lhs = S_boundary
         # Calculate density of water in the lock chambers
-        rho_lhs = hd.Rho_from_PSU(S_lhs, Temp=28)
-        rho_rhs = hd.Rho_from_PSU(S_rhs, Temp=28)
+        rho_lhs = hd.Rho_from_PSU(Salt=S_lhs, Temp=self.T)
+        rho_rhs = hd.Rho_from_PSU(Salt=S_rhs, Temp=self.T)
         # Sort densities
         if rho_lhs > rho_rhs:
             rho1 = rho_rhs
@@ -264,9 +266,9 @@ class ThreeStepLock:
         self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2)
         self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1)
     
-    def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction, T=28):
-        rho_chamber = hd.Rho_from_PSU(S_chamber, Temp=T)
-        rho_lake = hd.Rho_from_PSU(S_lake, Temp=T)
+    def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction):
+        rho_chamber = hd.Rho_from_PSU(Salt=S_chamber, Temp=self.T)
+        rho_lake = hd.Rho_from_PSU(Salt=S_lake, Temp=self.T)
         m_dc = V_ex_lake*(rho_chamber - rho_lake)
         if direction == 'up':
             m_vd = (rho_lake - rho_chamber)*self.V_ship
