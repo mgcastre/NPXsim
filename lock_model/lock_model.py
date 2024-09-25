@@ -301,7 +301,7 @@ class ThreeStepLock:
         V_ex_ocean = self.calc_volume_exchanged(Eff=Eff, cham='LC')
         return V_ex_ocean
     
-    def transit_up(self, V_ship, t_open_dict, boundary_conditions):
+    def transit(self, V_ship, t_open_dict, boundary_conditions, direction):
         
         # Extract boundary conditions
         S_ocean = boundary_conditions['S_ocean']
@@ -317,54 +317,44 @@ class ThreeStepLock:
         # Add gate opening times to lock heads dictionary
         self.lock_heads['tOpen'] = t_open_dict
         
-        # Lockage process
-        ## 1) Drain the lock chamber to the level of the ocean
-        self.chambers['LC'].drain_chamber(H_final=H_ocean)
-        ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
-        V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)
-        self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean)
-        ## 3) Equalization and transit between LC and MC
-        self.equalize_and_cross(lock_head='LH3', direction='up')
-        ## 4) Equalization and transit between MC and UC
-        self.equalize_and_cross(lock_head='LH2', direction='up')
-        ## 5) Lift the ship to the level of the lake
-        self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
-        ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
-        V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='up')
-        self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake)
+        # Provess for uplockage
+        if direction == 'up':
+            ## 1) Drain the lock chamber to the level of the ocean
+            self.chambers['LC'].drain_chamber(H_final=H_ocean)
+            ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
+            V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)
+            self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean)
+            ## 3) Equalization and transit between LC and MC
+            self.equalize_and_cross(lock_head='LH3', direction='up')
+            ## 4) Equalization and transit between MC and UC
+            self.equalize_and_cross(lock_head='LH2', direction='up')
+            ## 5) Lift the ship to the level of the lake
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
+            ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
+            V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='up')
+            self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake)
         
-
-    def transit_down(self, V_ship, t_open_dict, boundary_conditions):
-            
-        # Extract boundary conditions
-        S_ocean = boundary_conditions['S_ocean']
-        H_ocean = boundary_conditions['H_ocean']
-        S_lake = boundary_conditions['S_lake']
-        H_lake = boundary_conditions['H_lake']
-
-        # Add volumne of the ship transiting the lock
-        self.V_ship = V_ship
-        for cham in ['LC', 'MC', 'UC']:
-            self.chambers[cham].add_ship(V_ship)
+        # Process for downlocakge
+        elif direction == 'down':
+            ## 1) Lift upper chamber to level of the lake
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
+            ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
+            V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='down')
+            self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake)
+            ## 3) Equalization and transit between UC and MC
+            self.equalize_and_cross(lock_head='LH2', direction='down')
+            ## 4) Equalization and transit between MC and LC
+            self.equalize_and_cross(lock_head='LH3', direction='down')
+            ## 5) Drain to the level of the ocean
+            self.chambers['LC'].drain_chamber(H_final=H_ocean)
+            ## 6) Gates at LH4 open, salinity enters from the ocean and ship leaves the lock
+            V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
+            self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean)
         
-        # Add gate opening times to lock heads dictionary
-        self.lock_heads['tOpen'] = t_open_dict
+        # Raise an error if the direction is not valid
+        else:
+            raise ValueError("Direction must be either 'up' or 'down'.")
 
-        # Lockage process
-        ## 1) Lift upper chamber to level of the lake
-        self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake)
-        ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
-        V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='down')
-        self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake)
-        ## 3) Equalization and transit between UC and MC
-        self.equalize_and_cross(lock_head='LH2', direction='down')
-        ## 4) Equalization and transit between MC and LC
-        self.equalize_and_cross(lock_head='LH3', direction='down')
-        ## 5) Drain to the level of the ocean
-        self.chambers['LC'].drain_chamber(H_final=H_ocean)
-        ## 6) Gates at LH4 open, salinity enters from the ocean and ship leaves the lock
-        V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
-        self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean)
     
     def get_salt_load(self, Units='ton', Dictionary=True):
         """
