@@ -44,6 +44,7 @@ class LockChamber:
         self.water_volume = [V0]
         self.water_level = [H0]
         self.salinity = [S0]
+        self.time = [0] # minutes
     
     def add_ship(self, V_ship):
         self.V_ship = V_ship
@@ -62,37 +63,41 @@ class LockChamber:
         S = self.get_current_salinity()
         return V, S
 
-    def update_status(self, V, S, H):
+    def update_status(self, V, S, H, elapsed_time):
+        # Elpased time is in minutes
+        self.time.append(self.time[-1] + elapsed_time)
         self.water_level.append(H)
         self.water_volume.append(V)
         self.salinity.append(S)
     
-    def drain_chamber(self, H_final):
+    def drain_chamber(self, H_final, dt):
         V_final = (H_final - self.z_bottom)*self.area
         # Although water level changes, salinity remains constant
-        self.update_status(V=V_final, S=self.salinity[-1], H=H_final)
+        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, elapsed_time=dt)
     
-    def ship_enters(self, V_lhs, S_lhs):
+    def ship_enters(self, V_lhs, S_lhs, dt):
         V_init, S_init = self.get_current_status()
         V_final = V_init - self.V_ship
         S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], elapsed_time=dt)
     
-    def fill_chamber(self, H_final, S_lift):
+    def fill_chamber(self, H_final, S_lift, dt):
         V_init, S_init = self.get_current_status()
         dH = H_final - self.water_level[-1]
         V_lift = dH*self.area
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        self.update_status(V=V_final, S=S_final, H=H_final)
+        self.update_status(V=V_final, S=S_final, H=H_final, elapsed_time=dt)
     
-    def ship_leaves(self, V_rhs, S_rhs):
+    def ship_leaves(self, V_rhs, S_rhs, dt):
         V_init, S_init = self.get_current_status()
         V_final = V_init + self.V_ship
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1])
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], elapsed_time=dt)
+    
+    # TODO: Test that the time aware (transient) methods work as expected.
 
 
 class ThreeStepLock:
@@ -177,6 +182,7 @@ class ThreeStepLock:
             cham_levels['UC'] = op_levels['UC'][1]
             cham_levels['MC'] = op_levels['MC'][0]
             cham_levels['LC'] = op_levels['LC'][0]
+        
         # TODO: Figure out how to properly do the salinity mass balance 
         #       and water balance calculations for the turnaround process.
     
@@ -321,7 +327,7 @@ class ThreeStepLock:
         # Add gate opening times to lock heads dictionary
         self.lock_heads['tOpen'] = t_open_dict
         
-        # Provess for uplockage
+        # Process for uplockage
         if direction == 'up':
             ## 1) Drain the lock chamber to the level of the ocean
             self.chambers['LC'].drain_chamber(H_final=H_ocean)
@@ -397,5 +403,6 @@ class ThreeStepLock:
             water_levels[chamber] = self.chambers[chamber].water_level
         return water_levels
     
-    # TODO: Implement the transit_down method.
+    # TODO: Implement in the transit method a way to keep track of the time.
+    #       Figure out a way to add a timestamp for when the lockage started.
 
