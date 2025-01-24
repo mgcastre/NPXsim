@@ -237,11 +237,14 @@ class ThreeStepLock:
         Hf = (A1*H1 + A2*H2) / (A1 + A2)
         return Hf
     
+    def calc_equalization_time(self, cham1, cham2, Eff):
+        pass
+    
     def equalize_levels(self, lower_cham, upper_cham, return_level=False):
         Hf = self.calc_equalization_level(lower_cham, upper_cham)
-        self.chambers[upper_cham].drain_chamber(H_final=Hf)
+        self.chambers[upper_cham].drain_chamber(H_final=Hf, dt=10)
         S_next_cham = self.chambers[upper_cham].get_current_salinity()
-        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham)
+        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, dt=10)
         if return_level:
             return Hf
     
@@ -293,7 +296,7 @@ class ThreeStepLock:
         V_ex = Eff*(A*h - self.V_ship)
         return V_ex
     
-    def exchange_with_lake(self, S_lake,  direction):
+    def exchange_with_lake(self, S_lake, direction):
         # Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
         V_ex_lake = self.calc_volume_exchanged(Eff=Eff, cham='UC')
