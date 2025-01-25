@@ -3,6 +3,7 @@
 
 # Required Libraries
 import numpy as np
+import pandas as pd
 import hydrodynamics as hd
 
 # Define classes
@@ -385,23 +386,52 @@ class ThreeStepLock:
         else:
             return sm_dc, sm_vd, m_total
     
-    def get_salinities(self):
+    def make_results_df(self):
+        """Returns a dataframe with the raw results of the lock model."""
+        # Create a dataframe for each chamber and append it to a list
+        list_of_results = []
+        for ch in ['LC', 'MC', 'UC']:
+            df = pd.DataFrame(
+                {'Time': self.chambers[ch].time, 
+                 'Salinity': self.chambers[ch].salinity,
+                 'Water_Level': self.chambers[ch].water_level,
+                 'Chamber': ch}
+                )
+            list_of_results.append(df)
+        # Concatenate the list of dataframes and return the results
+        results = pd.concat(list_of_results)
+        return results
+
+    def get_results(self, variable, dt):
         """
-        Returns the salinity of each chamber in the lock model.
+        Returns a dataframe with the results of a specific variable of 
+        the lock model at different time steps sepecified by the user.
         """
-        salinities = {}
-        for chamber in ['LC', 'MC', 'UC']:
-            salinities[chamber] = self.chambers[chamber].salinity
-        return salinities
+        # Extract the results dataframe
+        results = self.make_results_df()
+        # Isolate the variable of interest
+        df = results[['Time', variable, 'Chamber']] \
+            .pivot(index='Time', columns='Chamber', values=variable)
+        # Merge with a dataframe of time steps
+        time_df = pd.DataFrame({'Time': np.arange(0, df.index.max(), dt)})
+        df = time_df.merge(df, how='left', on='Time').ffill()
+        df = df.set_index('Time')
+        return df
     
-    def get_water_levels(self):
+    def get_salinities(self, dt):
         """
-        Returns the water level of each chamber in the lock model.
+        Returns a dataframe of the salinity of each chamber in the lock model.
         """
-        water_levels = {}
-        for chamber in ['LC', 'MC', 'UC']:
-            water_levels[chamber] = self.chambers[chamber].water_level
-        return water_levels
+        df = self.get_results('Salinity', dt)
+        return df
+
+    
+    def get_water_levels(self, dt):
+        """
+        Returns a dtaframe of the water level of each chamber in the lock model.
+        """
+        df = self.get_results('Salinity', dt)
+        return df
     
     # TODO: Implement in the transit method a way to keep track of the time.
     #       Figure out a way to add a timestamp for when the lockage started.
