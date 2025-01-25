@@ -221,7 +221,7 @@ class ThreeStepLock:
             rho1 = rho_lhs
             rho2 = rho_rhs
         # Calculate the exchange coefficient
-        tOpen = self.lock_heads['tOpen'][lock_head]
+        tOpen = self.lock_heads['tOpen'][lock_head]*60
         head = H - self.lock_heads['Z'][lock_head]
         Eff = hd.exchange_coefficient(
             rho1=rho1, rho2=rho2, H=head, 
