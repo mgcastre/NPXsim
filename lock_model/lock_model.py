@@ -63,41 +63,38 @@ class LockChamber:
         S = self.get_current_salinity()
         return V, S
 
-    def update_status(self, V, S, H, elapsed_time):
-        # Elpased time is in minutes
-        self.time.append(self.time[-1] + elapsed_time)
+    def update_status(self, V, S, H, ts):
+        self.time.append(ts) # minutes
         self.water_level.append(H)
         self.water_volume.append(V)
         self.salinity.append(S)
     
-    def drain_chamber(self, H_final, dt):
+    def drain_chamber(self, H_final, ts):
         V_final = (H_final - self.z_bottom)*self.area
         # Although water level changes, salinity remains constant
-        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, elapsed_time=dt)
+        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, ts=ts)
     
-    def ship_enters(self, V_lhs, S_lhs, dt):
+    def ship_enters(self, V_lhs, S_lhs, ts):
         V_init, S_init = self.get_current_status()
         V_final = V_init - self.V_ship
         S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], elapsed_time=dt)
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], ts=ts)
     
-    def fill_chamber(self, H_final, S_lift, dt):
+    def fill_chamber(self, H_final, S_lift, ts):
         V_init, S_init = self.get_current_status()
         dH = H_final - self.water_level[-1]
         V_lift = dH*self.area
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        self.update_status(V=V_final, S=S_final, H=H_final, elapsed_time=dt)
+        self.update_status(V=V_final, S=S_final, H=H_final, ts=ts)
     
-    def ship_leaves(self, V_rhs, S_rhs, dt):
+    def ship_leaves(self, V_rhs, S_rhs, ts):
         V_init, S_init = self.get_current_status()
         V_final = V_init + self.V_ship
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], elapsed_time=dt)
-    
-    # TODO: Test that the time aware (transient) methods work as expected.
+        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], ts=ts)
 
 
 class ThreeStepLock:
