@@ -237,24 +237,21 @@ class ThreeStepLock:
     def calc_equalization_time(self, cham1, cham2, Eff):
         pass
     
-    def equalize_levels(self, lower_cham, upper_cham, return_level=False):
+    def equalize_levels(self, lower_cham, upper_cham, ts):
+        # Equalize levels between chambers
+        ## 1. Calculate final level for equalization
         Hf = self.calc_equalization_level(lower_cham, upper_cham)
-        self.chambers[upper_cham].drain_chamber(H_final=Hf, dt=10)
+        ## 2. Drain upper chamber to equalization level
+        self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
+        ## 3. Fill lower chamber to equalization level
         S_next_cham = self.chambers[upper_cham].get_current_salinity()
-        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, dt=10)
-        if return_level:
-            return Hf
+        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, ts=ts)
     
-    def equalize_and_cross(self, lock_head, direction):
+    def equalize_and_cross(self, lock_head, direction, ts, eq_time=10):
         # 1. Equalize levels between chambers
-        ## 1.1 Calculate final level for equalization
+        ts = ts + eq_time # time stamp after equalization in minutes
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
-        Hf = self.calc_equalization_level(lower_cham, upper_cham)
-        ## 1.2. Drain upper chamber to equalization level
-        self.chambers[upper_cham].drain_chamber(H_final=Hf)
-        ## 1.3. Fill lower chamber to equalization level
-        S_upper_cham = self.chambers[upper_cham].get_current_salinity()
-        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_upper_cham)
+        self.equalize_levels(lower_cham, upper_cham, ts)
         # 2. Open lock gates and move ship between chambers
         ## 2.1 Assign order of chambers depending on direction
         if direction == 'up':
@@ -269,8 +266,11 @@ class ThreeStepLock:
         ## 2.3 Move ship between chambers
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
-        self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2)
-        self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1)
+        t_transit = self.lock_heads['tOpen'][lock_head] + 2 # minutes
+        ts = ts + t_transit # time stamp after crossing lock head in minutes
+        self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2, ts=ts)
+        self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1, ts=ts)
+        return ts
     
     def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction):
         rho_chamber = hd.Rho_from_PSU(Salt=S_chamber, Temp=self.T)
