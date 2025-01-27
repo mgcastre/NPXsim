@@ -212,12 +212,8 @@ class ThreeStepLock:
         rho_lhs = hd.Rho_from_PSU(Salt=S_lhs, Temp=self.T)
         rho_rhs = hd.Rho_from_PSU(Salt=S_rhs, Temp=self.T)
         # Sort densities
-        if rho_lhs > rho_rhs:
-            rho1 = rho_rhs
-            rho2 = rho_lhs
-        else:
-            rho1 = rho_lhs
-            rho2 = rho_rhs
+        rho1, rho2 = (rho_rhs, rho_lhs) \
+            if rho_lhs > rho_rhs else (rho_lhs, rho_rhs)
         # Calculate the exchange coefficient
         tOpen = self.tGateOpen[lock_head]*60 # seconds
         head = H - self.lock_heads['Z'][lock_head]
@@ -249,26 +245,22 @@ class ThreeStepLock:
         self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, ts=ts)
     
     def equalize_and_cross(self, lock_head, direction, init_time):
-        # 1. Equalize levels between chambers
-        ts = init_time + self.eqTime[lock_head] # time stamp after equalization
+        # 1. Assign order of chambers depending on direction
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
+        cham1, cham2 = (lower_cham, upper_cham) \
+            if direction == 'up' else (upper_cham, lower_cham)
+        # 2. Equalize levels between chambers
+        ts = init_time + self.eqTime[cham1] # minutes
         self.equalize_levels(lower_cham, upper_cham, ts)
-        # 2. Open lock gates and move ship between chambers
-        ## 2.1 Assign order of chambers depending on direction
-        if direction == 'up':
-            cham1 = lower_cham
-            cham2 = upper_cham
-        elif direction == 'down':
-            cham1 = upper_cham
-            cham2 = lower_cham
-        ## 2.2. Calculate volume of water to be exchanged
+        # 3. Open lock gates and move ship between chambers
+        ## 2.1. Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head)
         V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
+        ## 2.2 Calculate time stamp after crossing lock head (in minutes)
+        ts = ts + self.tGateOpen[lock_head]
         ## 2.3 Move ship between chambers
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
-        ### Time stamp after crossing lock head in minutes
-        ts = ts + self.tGateOpen[lock_head] + 2 # minutes
         self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2, ts=ts)
         self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1, ts=ts)
         return ts
@@ -333,10 +325,10 @@ class ThreeStepLock:
         if direction == 'up':
             ## 1) Drain the lock chamber to the level of the ocean (LH4)
             time_stamp = self.chambers['LC'].time[-1]
-            time_stamp = time_stamp + self.eqTime['LH4'] # minutes to drain chamber
+            time_stamp = time_stamp + self.eqTime['LC'] # minutes to drain chamber
             self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
             ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
-            t_transit = self.tGateOpen['LH4'] + 2 # minutes
+            t_transit = self.tGateOpen['LH4'] # minutes
             time_stamp = time_stamp + t_transit # minutes
             V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)
             self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, ts=time_stamp)
@@ -345,10 +337,10 @@ class ThreeStepLock:
             ## 4) Equalization and transit between MC and UC
             time_stamp = self.equalize_and_cross(lock_head='LH2', direction='up', init_time=time_stamp)
             ## 5) Lift the ship to the level of the lake (LH1)
-            time_stamp = time_stamp + self.eqTime['LH1'] # minutes to fill chamber
+            time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
             ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
-            t_transit = self.tGateOpen['LH1'] + 2 # minutes
+            t_transit = self.tGateOpen['LH1'] # minutes
             time_stamp = time_stamp + t_transit # minutes
             V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='up')
             self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake, ts=time_stamp)
@@ -357,10 +349,10 @@ class ThreeStepLock:
         elif direction == 'down':
             ## 1) Lift upper chamber to level of the lake (LH1)
             time_stamp = self.chambers['UC'].time[-1]
-            time_stamp = time_stamp + self.eqTime['LH1'] # minutes to fill chamber
+            time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
             ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
-            t_transit = self.tGateOpen['LH1'] + 2 # minutes
+            t_transit = self.tGateOpen['LH1'] # minutes
             time_stamp = time_stamp + t_transit # minutes
             V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='down')
             self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake, ts=time_stamp)
@@ -369,10 +361,10 @@ class ThreeStepLock:
             ## 4) Equalization and transit between MC and LC
             time_stamp = self.equalize_and_cross(lock_head='LH3', direction='down', init_time=time_stamp)
             ## 5) Drain to the level of the ocean (LH4)
-            time_stamp = time_stamp + self.eqTime['LH4'] # minutes to drain chamber
+            time_stamp = time_stamp + self.eqTime['LC'] # minutes to drain chamber
             self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
             ## 6) Gates at LH4 open, salinity enters from the ocean and ship leaves the lock
-            t_transit = self.tGateOpen['LH4'] + 2 # minutes
+            t_transit = self.tGateOpen['LH4'] # minutes
             time_stamp = time_stamp + t_transit # minutes
             V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
             self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
