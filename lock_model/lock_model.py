@@ -304,13 +304,16 @@ class ThreeStepLock:
         V_ex_ocean = self.calc_volume_exchanged(Eff=Eff, cham='LC')
         return V_ex_ocean
     
-    def transit(self, operation_params, boundary_conditions, direction):
+    def transit(self, operation_params, boundary_conditions):
         
         # Extract boundary conditions
         S_ocean = boundary_conditions['S_ocean']
         H_ocean = boundary_conditions['H_ocean']
         S_lake = boundary_conditions['S_lake']
         H_lake = boundary_conditions['H_lake']
+
+        # Extract lockage direction
+        direction = operation_params['Direction']
 
         # Add volumne of the ship transiting the lock
         self.V_ship = operation_params['V_ship']
