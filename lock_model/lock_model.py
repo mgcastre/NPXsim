@@ -412,7 +412,7 @@ class ThreeStepLock:
         results = pd.concat(list_of_results)
         return results
 
-    def get_results(self, variable, dt):
+    def get_results(self, variable, interpolate=False, dt=None):
         """
         Returns a dataframe with the results of a specific variable of 
         the lock model at different time steps sepecified by the user.
@@ -422,10 +422,12 @@ class ThreeStepLock:
         # Isolate the variable of interest
         df = results[['Time', variable, 'Chamber']] \
             .pivot(index='Time', columns='Chamber', values=variable)
-        # Merge with a dataframe of time steps
-        time_df = pd.DataFrame({'Time': np.arange(0, df.index.max(), dt)})
-        df = time_df.merge(df, how='left', on='Time').ffill()
-        df = df.set_index('Time')
+        # Interpolate the results in time if the user specifies it
+        if interpolate:
+            time_df = pd.DataFrame({'Time': np.arange(0, df.index.max(), dt)})
+            df = time_df.merge(df, how='left', on='Time').ffill()
+            df = df.set_index('Time')
+        # Return the results dataframe
         return df
     
     def get_salinities(self, dt):
