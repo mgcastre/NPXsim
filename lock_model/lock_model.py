@@ -169,17 +169,26 @@ class ThreeStepLock:
         self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
                                'V_ex': [], 'S_uc': []}
     
-    def turnaround(self, H_lake, H_ocean, direction):
-        cham_levels = {}
+    def turnaround(self, H_lake, H_ocean, S_lake, new_direction, tinit):
         op_levels = self.calc_operational_levels(H_lake, H_ocean)
-        if direction == 'up':
-            cham_levels['UC'] = H_lake
-            cham_levels['MC'] = op_levels['MC'][1]
-            cham_levels['LC'] = op_levels['LC'][1]
-        if direction == 'down':
-            cham_levels['UC'] = op_levels['UC'][1]
-            cham_levels['MC'] = op_levels['MC'][0]
-            cham_levels['LC'] = op_levels['LC'][0]
+        if new_direction == 'up':
+            # 1. Fill UC to the level of the Lake
+            ts = tinit + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            # 2. Drain UC and fill MC to the top operating level of MC
+            ts = ts + 10 # minutes
+            Hf_mc = op_levels['MC'][1]
+            self.chambers['UC'].drain_chamber(H_final=Hf_mc, ts=ts)
+            S_uc = self.chambers['UC'].get_current_salinity()
+            self.chambers['MC'].fill_chamber(H_final=Hf_mc, S_lift=S_uc, ts=ts)
+            # 3. Fill UC again to the level of the ocean
+            ts = ts + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            # 4. Drain LC to the level of the ocean
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+
+        if new_direction == 'down':
+            pass
         
         # TODO: Figure out how to properly do the salinity mass balance 
         #       and water balance calculations for the turnaround process.
