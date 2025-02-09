@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 import hydrodynamics as hd
+from datetime import datetime
 
 # Define classes
 
@@ -141,7 +142,9 @@ class ThreeStepLock:
         # Return operational levels
         return operational_levels
     
-    def initialize(self, boundary_conditions, salinities, direction, temperature=28):
+    def initialize(self, boundary_conditions, salinities, direction, 
+                   operation_start_dt, temperature=28):
+        # Calculate initial operational water levels
         cham_levels = {}
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
@@ -165,6 +168,8 @@ class ThreeStepLock:
             )
         # Pass the temperature to the class attribute
         self.T = temperature
+        # Add master initial operation start time
+        self.operation_start_dt = operation_start_dt
         # Initialize dict to store salt mass load to the lake
         self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
                                'V_ex': [], 'S_uc': []}
