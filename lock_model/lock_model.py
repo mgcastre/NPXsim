@@ -318,6 +318,18 @@ class ThreeStepLock:
         V_ex_ocean = self.calc_volume_exchanged(Eff=Eff, cham='LC')
         return V_ex_ocean
     
+    def calc_elapsed_minutes(self, dt_string2, time_format='%Y-%m-%d %H:%M:%S'):
+        """
+        Calculate the elapsed time in minutes between the start of the lock operation and the
+        start of an individual lockage. Both date time stamps must be in the same time format,
+        which can be specified by the user.
+        """	
+        dt_string1 = self.operation_start_dt
+        date1 = datetime.strptime(dt_string1, time_format)
+        date2 = datetime.strptime(dt_string2, time_format)
+        elapsed_minutes = (date2 - date1).total_seconds()/60
+        return elapsed_minutes
+    
     def transit(self, operation_params, boundary_conditions):
         
         # Extract boundary conditions
