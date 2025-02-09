@@ -435,7 +435,7 @@ class ThreeStepLock:
         results = pd.concat(list_of_results)
         return results
 
-    def get_results(self, variable, interpolate=False, dt=None):
+    def get_results(self, variable, dt_index):
         """
         Returns a dataframe with the results of a specific variable of 
         the lock model at different time steps sepecified by the user.
@@ -443,29 +443,33 @@ class ThreeStepLock:
         # Extract the results dataframe
         results = self.make_results_df()
         # Isolate the variable of interest
-        df = results[['Time', variable, 'Chamber']] \
-            .pivot(index='Time', columns='Chamber', values=variable)
-        # Interpolate the results in time if the user specifies it
-        if interpolate:
-            time_df = pd.DataFrame({'Time': np.arange(0, df.index.max(), dt)})
-            df = time_df.merge(df, how='left', on='Time').ffill()
-            df = df.set_index('Time')
+        df = results.loc[:, ['Time', variable, 'Chamber']]
+        # Pivot the dataframe to have the chambers as columns
+        df = df.pivot(index='Time', columns='Chamber', values=variable)
+        # Add a datetime column as index
+        df.reset_index(inplace=True)
+        initial_time = self.operation_start_dt
+        df['Time'] = pd.to_timedelta(df['Time'], unit='min')
+        df['Date_Time'] = pd.to_datetime(initial_time) + df['Time']
+        if dt_index:
+            df.set_index('Date_Time', inplace=True)
+            df.drop(columns='Time', inplace=True)
         # Return the results dataframe
         return df
     
-    def get_salinities(self, dt):
+    def get_salinities(self, dt_index=True):
         """
         Returns a dataframe of the salinity of each chamber in the lock model.
         """
-        df = self.get_results('Salinity', dt)
+        df = self.get_results(variable='Salinity', dt_index=dt_index)
         return df
 
     
-    def get_water_levels(self, dt):
+    def get_water_levels(self, dt_index=True):
         """
         Returns a dtaframe of the water level of each chamber in the lock model.
         """
-        df = self.get_results('Salinity', dt)
+        df = self.get_results(variable='Water_Level', dt_index=dt_index)
         return df
     
     # TODO: Implement in the transit method a way to keep track of the time.
