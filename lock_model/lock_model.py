@@ -194,9 +194,6 @@ class ThreeStepLock:
 
         if new_direction == 'down':
             pass
-        
-        # TODO: Figure out how to properly do the salinity mass balance 
-        #       and water balance calculations for the turnaround process.
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
@@ -472,6 +469,9 @@ class ThreeStepLock:
         df = self.get_results(variable='Water_Level', dt_index=dt_index)
         return df
     
-    # TODO: Implement in the transit method a way to keep track of the time.
-    #       Figure out a way to add a timestamp for when the lockage started.
+    # TODO: In the transit method change lock chamber's dimensions for each lockage.
+    #       In the __init__ method, the standard lock dimensions are set.
+    #       Rename initialize method to set_initial_conditions.
+    #       Verify that salinities during uplockage are correct.
+    #       Finalize the turnaround method.
 
