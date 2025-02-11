@@ -142,8 +142,9 @@ class ThreeStepLock:
         # Return operational levels
         return operational_levels
     
-    def initialize(self, boundary_conditions, salinities, direction, 
-                   operation_start_dt, temperature=28):
+    def set_initial_conditions(self, boundary_conditions, salinities, 
+                               direction, operation_start_dt, 
+                               water_temperature=28):
         # Calculate initial operational water levels
         cham_levels = {}
         H_lake = boundary_conditions['H_lake']
@@ -167,7 +168,7 @@ class ThreeStepLock:
                 H0=cham_levels[cham], S0=salinities[cham]
             )
         # Pass the temperature to the class attribute
-        self.T = temperature
+        self.T = water_temperature
         # Add master initial operation start time
         self.operation_start_dt = operation_start_dt
         # Initialize dict to store salt mass load to the lake
