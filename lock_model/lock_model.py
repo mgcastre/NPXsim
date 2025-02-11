@@ -41,6 +41,9 @@ class LockChamber:
         if H0 is not None and S0 is not None:
             self.add_initial_conditions(H0, S0)
     
+    def change_length(self, new_length):
+        self.length = new_length
+    
     def add_initial_conditions(self, H0, S0):
         V0 = (H0 - self.z_bottom)*self.area
         self.water_volume = [V0]
@@ -329,15 +332,18 @@ class ThreeStepLock:
         return elapsed_minutes
     
     def transit(self, operation_params, boundary_conditions):
+        # Extract volume of the ship transiting the lock
+        self.V_ship = operation_params['V_ship']
         # Extract boundary conditions
         S_ocean = boundary_conditions['S_ocean']
         H_ocean = boundary_conditions['H_ocean']
         S_lake = boundary_conditions['S_lake']
         H_lake = boundary_conditions['H_lake']
-        # Add volumne of the ship transiting the lock
-        self.V_ship = operation_params['V_ship']
+        # Add chamber's length and ship's volume to lock chamber
         for cham in ['LC', 'MC', 'UC']:
+            L = operation_params['Chamber_Length']
             self.chambers[cham].add_ship(self.V_ship)
+            self.chambers[cham].change_length(L)
         # Extract lock operation parameters
         self.tGateOpen = operation_params['tGateOpen']
         self.eqTime = operation_params['eqTime']
