@@ -360,13 +360,13 @@ class ThreeStepLock:
         else:
             raise ValueError("Direction must be either 'up' or 'down'.")
     
-    def uplockage(self, initial_time, S_ocean, H_ocean, S_lake, H_lake):
+    def uplockage(self, initial_time_stamp, S_ocean, H_ocean, S_lake, H_lake):
         ## 1) Drain the lock chamber to the level of the ocean (LH4)
-        time_stamp = initial_time + self.eqTime['LC']
-        self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
+        if self.chambers['LC'].get_current_level() > H_ocean:
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=initial_time_stamp)
         ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
         t_transit = self.tGateOpen['LH4'] # minutes
-        time_stamp = time_stamp + t_transit # minutes
+        time_stamp = initial_time_stamp + t_transit # minutes
         V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)
         self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, ts=time_stamp)
         ## 3) Equalization and transit between LC and MC
