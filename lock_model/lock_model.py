@@ -476,9 +476,5 @@ class ThreeStepLock:
         df = self.get_results(variable='Water_Level', dt_index=dt_index)
         return df
     
-    # TODO: In the transit method change lock chamber's dimensions for each lockage.
-    #       In the __init__ method, the standard lock dimensions are set.
-    #       Rename initialize method to set_initial_conditions.
-    #       Verify that salinities during uplockage are correct.
-    #       Finalize the turnaround method.
+    # TODO: Finalize the turnaround method.
 
