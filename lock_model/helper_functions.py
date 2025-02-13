@@ -6,6 +6,30 @@ import pandas as pd
 
 # Define functions
 
+def filter_date_range(df, start_date, end_date, date_col='Date_Time'):
+    """
+    Filters a dataframe by a date range. The function accepts a dataframe and
+    two strings with the start and end dates in the format 'YYYY-MM-DD HH:MM:SS'.
+    """
+    df[date_col] = pd.to_datetime(df[date_col])
+    cond01 = df[date_col] >= pd.to_datetime(start_date)
+    cond02 = df[date_col] <= pd.to_datetime(end_date)
+    df_filtered = df.loc[cond01 & cond02, :]
+    return df_filtered
+
+def prepare_obs_salinities(df, start_date, end_date):
+    """
+    Prepares the observed salinities of the lock chambers. The function accepts
+    a dataframe that must contain the columns 'Date_Time', 'LC', 'MC', and 'UC'.
+    Additionally, the function accepts the start and end dates to filter the data.
+    """
+    ## Filter data by date range
+    df_filtered = filter_date_range(df, start_date, end_date, date_col='Date_Time')
+    df_filtered = df_filtered.loc[:, ['Date_Time', 'LC', 'MC', 'UC']]
+    df_filtered.set_index('Date_Time', inplace=True)
+    ## Return filtered dataframe
+    return df_filtered
+
 def prepare_boundary_conditions(lock_operations_df):
     """
     Creates a list of dictionaries containing the boundary conditions to run
@@ -123,3 +147,4 @@ def extract_initial_salinities(salinity_df, initial_time):
         .loc[salinity_df.index == initial_time] \
             .squeeze().to_dict()
     return initial_salinities
+
