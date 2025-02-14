@@ -178,27 +178,6 @@ class ThreeStepLock:
         self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
                                'V_ex': [], 'S_uc': []}
     
-    def turnaround(self, H_lake, H_ocean, S_lake, new_direction, tinit):
-        op_levels = self.calc_operational_levels(H_lake, H_ocean)
-        if new_direction == 'up':
-            # 1. Fill UC to the level of the Lake
-            ts = tinit + 10 # minutes
-            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
-            # 2. Drain UC and fill MC to the top operating level of MC
-            ts = ts + 10 # minutes
-            Hf_mc = op_levels['MC'][1]
-            self.chambers['UC'].drain_chamber(H_final=Hf_mc, ts=ts)
-            S_uc = self.chambers['UC'].get_current_salinity()
-            self.chambers['MC'].fill_chamber(H_final=Hf_mc, S_lift=S_uc, ts=ts)
-            # 3. Fill UC again to the level of the ocean
-            ts = ts + 10 # minutes
-            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
-            # 4. Drain LC to the level of the ocean
-            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
-
-        if new_direction == 'down':
-            pass
-    
     def extract_properties(self, cham):
         W = self.chambers[cham].width
         L = self.chambers[cham].length
@@ -403,6 +382,43 @@ class ThreeStepLock:
         time_stamp = time_stamp + t_transit # minutes
         V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
+    
+    def turnaround(self, H_lake, H_ocean, S_lake, new_direction, tinit):
+        op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        # A) From downlockage to uplockage:
+        if new_direction == 'up':
+            ## 1. Fill UC to the level of the Lake
+            ts = tinit + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            ## 2. Drain UC and fill MC to the top operating level of MC
+            ts = ts + 10 # minutes
+            Hf_mc = op_levels['MC'][1]
+            S_uc = self.chambers['UC'].get_current_salinity()
+            self.chambers['UC'].drain_chamber(H_final=Hf_mc, ts=ts)
+            self.chambers['MC'].fill_chamber(H_final=Hf_mc, S_lift=S_uc, ts=ts)
+            ## 3. Fill UC again to the level of the ocean
+            ts = ts + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            ## 4. Drain LC to the level of the ocean
+            if self.chambers['LC'].get_current_level() > H_ocean:
+                self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+        # B) From uplockage to downlockage:
+        if new_direction == 'down':
+            ## 1. Drain LC to the level of the ocean
+            ts = tinit + 10 # minutes
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+            ## 2. Drain MC and fill LC to the lowest operational level of MC
+            ts = ts + 10 # minutes
+            Hf_mc = op_levels['MC'][0]
+            S_mc = self.chambers['MC'].get_current_salinity()
+            self.chambers['MC'].drain_chamber(H_final=Hf_mc, ts=ts)
+            self.chambers['LC'].fill_chamber(H_final=Hf_mc, S_lift=S_mc, ts=ts)
+            ## 3. Drain LC again to the level of the ocean
+            ts = ts + 10 # minutes
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+            ## 4. Fill UC to the level of the lake
+            if self.chambers['UC'].get_current_level() < H_lake:
+                self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
     
     def get_salt_load(self, Units='ton', Dictionary=True):
         """
