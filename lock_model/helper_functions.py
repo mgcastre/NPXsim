@@ -64,6 +64,7 @@ def prepare_operation_parameters(lock_operations_df):
     - equalzTimeUC: Equalization time for upper chamber
     - equalzTimeMC: Equalization time for middle chamber
     - equalzTimeLC: Equalization time for lower chamber
+    - TS_LocksReady: Time stamp for when locks are ready for the lockage
     - TS_LockageStarts: Lockage start time
     - Ship_Vol_Disp: Ship volume displacement
     - Chamber_Length: Lock chamber length
@@ -71,7 +72,8 @@ def prepare_operation_parameters(lock_operations_df):
     ## Extract operation parameters for lock operations
     transit_time_cols = [f'transitTimeLH{i}' for i in range(1, 5)]
     eq_time_cols = [f'equalzTime{x}' for x in ['UC', 'MC', 'LC']]
-    other_cols = ['TS_LockageStarts', 'Direction', 'Ship_Vol_Disp', 'Chamber_Length']
+    other_cols = ['TS_LocksReady', 'TS_LockageStarts', 'Direction', 
+                  'Ship_Vol_Disp', 'Chamber_Length']
     operation_params_df = lock_operations_df \
         .loc[:, ['Num'] + transit_time_cols + eq_time_cols + other_cols]
     ## Add all of the transit and equalization times
@@ -87,6 +89,7 @@ def prepare_operation_parameters(lock_operations_df):
     for item in operation_params_raw:
         transformed_item = {
             'Num': item['Num'],
+            'TS_LocksReady': str(item['TS_LocksReady']),
             'TS_LockageStarts': str(item['TS_LockageStarts']),
             'Chamber_Length': item['Chamber_Length'],
             'Direction': item['Direction'],

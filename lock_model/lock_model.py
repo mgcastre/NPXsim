@@ -311,13 +311,16 @@ class ThreeStepLock:
         return elapsed_minutes
     
     def operate(self, operation_params, boundary_conditions):
-        for i in range(1, len(operation_params)-1):
-            this_transit = operation_params[i-1]
-            next_transit = operation_params[i]
-            self.transit(this_transit, boundary_conditions[i-1])
+        for i in range(len(operation_params)):
+            this_transit = operation_params[i]
+            self.transit(this_transit, boundary_conditions[i])
+            try:
+                next_transit = operation_params[i+1]
+            except IndexError:
+                break
             if this_transit['Direction'] != next_transit['Direction']:
-                ts = self.calc_elapsed_minutes(next_transit['TS_LockageStarts']) - 30
-                self.turnaround(boundary_conditions[i], next_transit['Direction'], tinit=ts)
+                ts = self.calc_elapsed_minutes(next_transit['TS_LocksReady']) - 30
+                self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
     
     def transit(self, operation_params, boundary_conditions):
         # Extract volume of the ship transiting the lock
