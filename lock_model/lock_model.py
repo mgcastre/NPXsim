@@ -310,6 +310,15 @@ class ThreeStepLock:
         elapsed_minutes = (date2 - date1).total_seconds()/60
         return elapsed_minutes
     
+    def operate(self, operation_params, boundary_conditions):
+        for i in range(1, len(operation_params)-1):
+            this_transit = operation_params[i-1]
+            next_transit = operation_params[i]
+            self.transit(this_transit, boundary_conditions[i-1])
+            if this_transit['Direction'] != next_transit['Direction']:
+                ts = self.calc_elapsed_minutes(next_transit['TS_LockageStarts']) - 30
+                self.turnaround(boundary_conditions[i], next_transit['Direction'], tinit=ts)
+    
     def transit(self, operation_params, boundary_conditions):
         # Extract volume of the ship transiting the lock
         self.V_ship = operation_params['V_ship']
@@ -383,7 +392,12 @@ class ThreeStepLock:
         V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
     
-    def turnaround(self, H_lake, H_ocean, S_lake, new_direction, tinit):
+    def turnaround(self, boundary_conditions, new_direction, tinit):
+        # Extract boundary conditions
+        H_ocean = boundary_conditions['H_ocean']
+        S_lake = boundary_conditions['S_lake']
+        H_lake = boundary_conditions['H_lake']
+        # Calculate lock operational levels
         op_levels = self.calc_operational_levels(H_lake, H_ocean)
         # A) From downlockage to uplockage:
         if new_direction == 'up':
