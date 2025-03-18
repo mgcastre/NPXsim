@@ -1,4 +1,4 @@
-# Class for ThreeStepsLock for Panama Canal's lock model
+# ThreeStepsLock class for Panama Canal's lock model
 # M. G. Castrellon | 18 March 2025
 
 # Required Libraries

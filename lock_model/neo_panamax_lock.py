@@ -1,4 +1,4 @@
-# Class for NeoPanamaxLock for Panama Canal's lock model
+# NeoPanamaxLock class for Panama Canal's lock model
 # M. G. Castrellon | 18 March 2025
 
 # Required Libraries
