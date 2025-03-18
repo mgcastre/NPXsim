@@ -1,108 +1,15 @@
-# Script for Panama Canal's Lock Model
-# M. G. Castrellon | 30 May 2024
+# Class for ThreeStepsLock for Panama Canal's lock model
+# M. G. Castrellon | 18 March 2025
 
 # Required Libraries
 import numpy as np
 import pandas as pd
 import hydrodynamics as hd
 from datetime import datetime
+from lock_elements import *
 
-# Define classes
-
-class WaterSavingBasin:
-
-    def __init__(self, length, width, H0, S0, Hf):
-        self.length = length
-        self.width = width
-        self.area = length * width
-        self.water_level = [H0 - Hf]
-        self.floor_level = Hf
-        self.salinity = [S0]
-        self.water_volume = self.calculate_volume()
-    
-    def calculate_volume(self):
-        self.water_volume = self.area * self.water_level
-    
-    def calc_simple_mass_balance(self, V_in, V_out, S_in):
-        V0 = self.water_volumne[:-1]
-        V1 = V0 + V_in - V_out
-        S0 = self.salinity[:-1]
-        S1 = (S0*(V0 - V_out) + S_in*V_in) / V1
-        self.salinity.append(S1)
-        self.water_volume.append(V1)
-
-class LockChamber:
-    
-    def __init__(self, length, width, z_bottom, H0=None, S0=None):
-        self.length = length
-        self.width = width
-        self.z_bottom = z_bottom
-        self.area = length*width
-        if H0 is not None and S0 is not None:
-            self.add_initial_conditions(H0, S0)
-    
-    def change_length(self, new_length):
-        self.length = new_length
-    
-    def add_initial_conditions(self, H0, S0):
-        V0 = (H0 - self.z_bottom)*self.area
-        self.water_volume = [V0]
-        self.water_level = [H0]
-        self.salinity = [S0]
-        self.time = [0] # minutes
-    
-    def add_ship(self, V_ship):
-        self.V_ship = V_ship
-    
-    def get_current_salinity(self):
-        return self.salinity[-1]
-    
-    def get_current_volume(self):
-        return self.water_volume[-1]
-    
-    def get_current_level(self):
-        return self.water_level[-1]
-    
-    def get_current_status(self):
-        V = self.get_current_volume()
-        S = self.get_current_salinity()
-        return V, S
-
-    def update_status(self, V, S, H, ts):
-        self.time.append(ts) # minutes
-        self.water_level.append(H)
-        self.water_volume.append(V)
-        self.salinity.append(S)
-    
-    def drain_chamber(self, H_final, ts):
-        V_final = (H_final - self.z_bottom)*self.area
-        # Although water level changes, salinity remains constant
-        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, ts=ts)
-    
-    def ship_enters(self, V_lhs, S_lhs, ts):
-        V_init, S_init = self.get_current_status()
-        V_final = V_init - self.V_ship
-        S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
-        # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], ts=ts)
-    
-    def fill_chamber(self, H_final, S_lift, ts):
-        V_init, S_init = self.get_current_status()
-        dH = H_final - self.water_level[-1]
-        V_lift = dH*self.area
-        V_final = V_init + V_lift
-        S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        self.update_status(V=V_final, S=S_final, H=H_final, ts=ts)
-    
-    def ship_leaves(self, V_rhs, S_rhs, ts):
-        V_init, S_init = self.get_current_status()
-        V_final = V_init + self.V_ship
-        S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
-        # Although volume of water gets exchanged, the water level remains constant
-        self.update_status(V=V_final, S=S_final, H=self.water_level[-1], ts=ts)
-
-
-class ThreeStepLock:
+# Define class
+class ThreeStepsLock:
 
     def __init__(self, lock_length, lock_width, 
                  lock_bottom_elevs, lock_head_sills):
@@ -508,6 +415,4 @@ class ThreeStepLock:
         """
         df = self.get_results(variable='Water_Level', dt_index=dt_index)
         return df
-    
-    # TODO: Finalize the turnaround method.
 
