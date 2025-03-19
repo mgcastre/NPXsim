@@ -389,7 +389,7 @@ class ThreeStepsLock:
         results = pd.concat(list_of_results)
         return results
 
-    def get_results(self, variable, dt_index):
+    def get_results(self, variable, dt_index, ffill):
         """
         Returns a dataframe with the results of a specific variable of 
         the lock model at different time steps sepecified by the user.
@@ -408,21 +408,26 @@ class ThreeStepsLock:
         if dt_index:
             df.set_index('Date_Time', inplace=True)
             df.drop(columns='Time', inplace=True)
+        if ffill:
+            for col in ['LC', 'MC', 'UC']:
+                df[col].ffill(inplace=True)
         # Return the results dataframe
         return df
     
-    def get_salinities(self, dt_index=True):
+    def get_salinities(self, dt_index=True, ffill=True):
         """
         Returns a dataframe of the salinity of each chamber in the lock model.
         """
-        df = self.get_results(variable='Salinity', dt_index=dt_index)
+        df = self.get_results(variable='Salinity', 
+                              dt_index=dt_index, ffill=ffill)
         return df
 
     
-    def get_water_levels(self, dt_index=True):
+    def get_water_levels(self, dt_index=True, ffill=True):
         """
         Returns a dtaframe of the water level of each chamber in the lock model.
         """
-        df = self.get_results(variable='Water_Level', dt_index=dt_index)
+        df = self.get_results(variable='Water_Level', 
+                              dt_index=dt_index, ffill=ffill)
         return df
 
