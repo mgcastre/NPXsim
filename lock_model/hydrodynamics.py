@@ -89,3 +89,13 @@ def exchange_coefficient(rho1, rho2, H, L, tOpen, eta=0.8):
     tLE = 2 * (L/U) # Theoretical time for full lock exchange
     e_coeff = np.tanh(eta*(tOpen/tLE)) # Lock exchange coefficient
     return e_coeff
+
+def convert_salt_concentration(S_practical, temperature):
+        """
+        Converts practical salinity units to salinity concentration
+        in kg/m3. Requires the user to specify a temperature.
+        """
+        S_absolute = gsw.conversions.SA_from_SP(SP=S_practical, p=0, lon=0, lat=0)
+        rho = gsw.density.rho_t_exact(SA=S_absolute, t=temperature, p=0)
+        c_kg_m3 = S_absolute*rho/1000
+        return c_kg_m3
