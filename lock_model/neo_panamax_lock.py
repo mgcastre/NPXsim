@@ -47,3 +47,62 @@ class NeoPanamaxLock(ThreeStepsLock):
         wsb_op_levels = self.calc_wsb_operational_levels(cham_op_levels)
         return cham_op_levels, wsb_op_levels
     
+    @staticmethod
+    def calc_initial_levels(cham_op_levels, wsb_op_levels, direction):
+        cham_init_levels = {}
+        wsb_init_levels = {}
+        # For uplockage, the lower chamber is at the level of the ocean (low level)
+        # and the rest of the chambers are at their higher operational levels.
+        # For downlockage, the upper chamber is at the level of the lake (high level)
+        # and the rest of the chambers are at their lower operational levels.
+        levels_dict = {'up': {'LC': 0, 'MC': 1, 'UC': 1}, 
+                       'down': {'LC': 0, 'MC': 0, 'UC': 1}}
+        for cham, op_level in levels_dict[direction].items():
+            cham_init_levels[cham] = cham_op_levels[cham][op_level]
+            b_level = 1 - op_level # Level of WSB is opposite of related chamber.
+            wsb_init_levels[cham] = {} # Create dictionary for each chamber.
+            for basin in ['Top', 'Int', 'Btm']:
+                wsb_init_levels[cham][basin] = wsb_op_levels[cham][basin][b_level]
+        return cham_init_levels, wsb_init_levels
+    
+    def set_initial_conditions(self, boundary_conditions, salinities, 
+                               direction, operation_start_dt, 
+                               water_temperature=28):
+        # Calculate initial operational water levels
+        H_lake = boundary_conditions['H_lake']
+        H_ocean = boundary_conditions['H_ocean']
+        cham_op_levels, wsb_op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        cham_init_levels, wsb_init_levels = \
+            self.calc_initial_levels(cham_op_levels, wsb_op_levels, direction)
+        # Add initial conditions to the lock chambers
+        for cham in ['LC', 'MC', 'UC']:
+            self.chambers[cham].add_initial_conditions(
+                H0=cham_init_levels[cham], S0=salinities['CHAM'][cham]
+            )
+            for basin in ['Top', 'Int', 'Btm']:
+                self.basins[cham][basin].add_initial_conditions(
+                H0=wsb_init_levels[cham][basin], S0=salinities['WSB'][cham]
+            )
+        # Pass the temperature to the class attribute
+        self.T = water_temperature
+        # Add master initial operation start time
+        self.operation_start_dt = operation_start_dt
+        
+    # def turaround():
+    # TODO: Develop the logic of the turnaround, taking into account that 
+    #       the basins should be in the opposite state as the locks.
+    #    pass
+
+"""     
+    def uplockage():
+        pass
+
+    def downlockage():
+        pass
+
+    def transit():
+        pass
+
+    def operate():
+        pass 
+"""
