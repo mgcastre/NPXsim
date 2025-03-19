@@ -82,8 +82,9 @@ class ThreeStepsLock:
         # Add master initial operation start time
         self.operation_start_dt = operation_start_dt
         # Initialize dict to store salt mass load to the lake
-        self.salt_mass_load = {'DC': [], 'VD': [], 'Eff': [], 
-                               'V_ex': [], 'S_uc': []}
+        self.salt_mass_load = {'TS': [], 'DC': [], 'VD': []}
+        # Initialize dict to store freshwater consumed per lockage
+        self.freshwater_consumed = {'TS': [], 'M3': []}
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
@@ -166,17 +167,6 @@ class ThreeStepsLock:
         self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1, ts=ts)
         return ts
     
-    def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction):
-        rho_chamber = hd.Rho_from_PSU(Salt=S_chamber, Temp=self.T)
-        rho_lake = hd.Rho_from_PSU(Salt=S_lake, Temp=self.T)
-        m_dc = V_ex_lake*(rho_chamber - rho_lake)
-        if direction == 'up':
-            m_vd = (rho_lake - rho_chamber)*self.V_ship
-        elif direction == 'down':
-            m_vd = (rho_chamber - rho_lake)*self.V_ship
-        self.salt_mass_load['DC'].append(m_dc)
-        self.salt_mass_load['VD'].append(m_vd)
-    
     def calc_volume_exchanged(self, Eff, cham):
         Hf = self.chambers[cham].get_current_level()
         if cham == 'UC':
@@ -187,23 +177,32 @@ class ThreeStepsLock:
         V_ex = Eff*(A*h - self.V_ship)
         return V_ex
     
-    def exchange_with_lake(self, S_lake, direction):
-        # Calculate volume of water to be exchanged
-        Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
-        V_ex_lake = self.calc_volume_exchanged(Eff=Eff, cham='UC')
-        # Calculate salt mass load to the lake
-        S_chamber = self.chambers['UC'].get_current_salinity()
-        self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction)
-        # Return and append values
-        self.salt_mass_load['S_uc'].append(S_chamber)
-        self.salt_mass_load['V_ex'].append(V_ex_lake)
-        self.salt_mass_load['Eff'].append(Eff)
-        return V_ex_lake
+    def calc_salt_mass_load(self, S_lake, V_ex_lake, S_chamber, direction, ts):
+        c1 = hd.convert_salt_concentration(S_lake, self.T)
+        c2 = hd.convert_salt_concentration(S_chamber, self.T)
+        m_dc = V_ex_lake*(c2 - c1)
+        if direction == 'up':
+            m_vd = -1*self.V_ship*c1
+        elif direction == 'down':
+            m_vd = self.V_ship*c2
+        self.salt_mass_load['TS'].append(ts)
+        self.salt_mass_load['DC'].append(m_dc)
+        self.salt_mass_load['VD'].append(m_vd)
     
-    def exchange_with_ocean(self, S_ocean):
-        Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
-        V_ex_ocean = self.calc_volume_exchanged(Eff=Eff, cham='LC')
-        return V_ex_ocean
+    def record_freshwater_consumed(self, end_luc, ts):
+        start_luc = self.chambers['UC'].water_level[-1]
+        vol = (end_luc - start_luc)*self.chambers['UC'].area
+        self.freshwater_consumed['TS'].append(ts)
+        self.freshwater_consumed['M3'].append(vol)
+    
+    def exchange_with_boundary(self, S_lake=None, S_ocean=None):
+        if S_lake is not None:
+            Eff = self.lock_exchange_factor(lock_head='LH1', S_boundary=S_lake)
+            V_ex = self.calc_volume_exchanged(Eff=Eff, cham='UC')
+        elif S_ocean is not None:
+            Eff = self.lock_exchange_factor(lock_head='LH4', S_boundary=S_ocean)
+            V_ex = self.calc_volume_exchanged(Eff=Eff, cham='LC')
+        return V_ex
     
     def calc_elapsed_minutes(self, dt_string2, time_format='%Y-%m-%d %H:%M:%S'):
         """
@@ -265,7 +264,7 @@ class ThreeStepsLock:
         ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
         t_transit = self.tGateOpen['LH4'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
-        V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)
+        V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean)
         self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, ts=time_stamp)
         ## 3) Equalization and transit between LC and MC
         time_stamp = self.equalize_and_cross(lock_head='LH3', direction='up', init_time=time_stamp)
@@ -274,21 +273,27 @@ class ThreeStepsLock:
         ## 5) Lift the ship to the level of the lake (LH1)
         time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
+        self.record_freshwater_consumed(end_luc=H_lake, ts=time_stamp)
         ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = time_stamp + t_transit # minutes
-        V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='up')
+        S_chamber = self.chambers['UC'].salinity[-1]
+        V_ex_lake = self.exchange_with_boundary(S_lake=S_lake)
         self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake, ts=time_stamp)
+        self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='up', ts=time_stamp)
 
     def downlockage(self, initial_time_stamp, S_ocean, H_ocean, S_lake, H_lake):
         ## 1) Lift upper chamber to level of the lake (LH1)
         if self.chambers['UC'].get_current_level() < H_lake:
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=initial_time_stamp)
+            self.record_freshwater_consumed(end_luc=H_lake, ts=initial_time_stamp)
         ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
-        V_ex_lake = self.exchange_with_lake(S_lake=S_lake, direction='down')
+        S_chamber = self.chambers['UC'].salinity[-1]
+        V_ex_lake = self.exchange_with_boundary(S_lake=S_lake)
         self.chambers['UC'].ship_enters(V_lhs=V_ex_lake, S_lhs=S_lake, ts=time_stamp)
+        self.calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='down', ts=time_stamp)
         ## 3) Equalization and transit between UC and MC
         time_stamp = self.equalize_and_cross(lock_head='LH2', direction='down', init_time=time_stamp)
         ## 4) Equalization and transit between MC and LC
@@ -299,7 +304,7 @@ class ThreeStepsLock:
         ## 6) Gates at LH4 open, salinity enters from the ocean and ship leaves the lock
         t_transit = self.tGateOpen['LH4'] # minutes
         time_stamp = time_stamp + t_transit # minutes
-        V_ex_ocean = self.exchange_with_ocean(S_ocean=S_ocean)  
+        V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean) 
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
     
     def turnaround(self, boundary_conditions, new_direction, tinit):
