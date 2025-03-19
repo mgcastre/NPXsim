@@ -29,6 +29,10 @@ class ThreeStepsLock:
             'LH3': ['LC', 'MC'], 
             'LH4': ['LC']
         }
+        # Initialize dict to store salt mass load to the lake
+        self.salt_mass_load = {'TS': [], 'DC': [], 'VD': []}
+        # Initialize dict to store freshwater consumed per lockage
+        self.freshwater_consumed = {'TS': [], 'M3': []}
     
     def calc_operational_levels(self, H_lake, H_ocean):
         # Extract chamber areas
