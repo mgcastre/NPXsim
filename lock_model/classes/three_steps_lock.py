@@ -130,11 +130,12 @@ class ThreeStepsLock:
         # Return the exchange coefficient
         return Eff
     
-    def calc_equalization_level(self, cham1, cham2):
-        A1 = self.chambers[cham1].area
-        A2 = self.chambers[cham2].area
-        H1 = self.chambers[cham1].get_current_level()
-        H2 = self.chambers[cham2].get_current_level()
+    @staticmethod
+    def calc_equalization_level(res1, res2):
+        A1 = res1.area
+        A2 = res2.area
+        H1 = res1.get_current_level()
+        H2 = res2.get_current_level()
         Hf = (A1*H1 + A2*H2) / (A1 + A2)
         return Hf
     
