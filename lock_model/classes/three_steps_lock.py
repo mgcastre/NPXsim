@@ -139,13 +139,12 @@ class ThreeStepsLock:
         Hf = (A1*H1 + A2*H2) / (A1 + A2)
         return Hf
     
-    def calc_equalization_time(self, cham1, cham2, Eff):
-        pass
-    
-    def equalize_levels(self, lower_cham, upper_cham, ts):
+    def equalize_chamber_levels(self, lower_cham, upper_cham, ts):
         # Equalize levels between chambers
         ## 1. Calculate final level for equalization
-        Hf = self.calc_equalization_level(lower_cham, upper_cham)
+        lower_res = self.chambers[lower_cham]
+        upper_res = self.chambers[upper_cham]
+        Hf = self.calc_equalization_level(lower_res, upper_res)
         ## 2. Drain upper chamber to equalization level
         self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
         ## 3. Fill lower chamber to equalization level
@@ -159,7 +158,7 @@ class ThreeStepsLock:
             if direction == 'up' else (upper_cham, lower_cham)
         # 2. Equalize levels between chambers
         ts = init_time + self.eqTime[cham1] # minutes
-        self.equalize_levels(lower_cham, upper_cham, ts)
+        self.equalize_chamber_levels(lower_cham, upper_cham, ts)
         # 3. Open lock gates and move ship between chambers
         ## 2.1. Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head)
