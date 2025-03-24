@@ -27,8 +27,7 @@ output_dir = "./outputs/figures/lock_model/"
 # Verify lockage data
 
 ## Read lock operations data
-file_path = "./data/external/model_validation/"
-lock_operations = pd.read_csv(file_path + "op_params_and_bcs.csv")
+lock_operations = pd.read_csv("./data/op_params_and_bcs.csv")
 
 ## Find reange of interest
 cond01 = (lock_operations['Flush'] == 0)
@@ -54,10 +53,9 @@ start = '2023-10-31 00:00:00'
 end = '2023-11-01 20:00:00'
 
 ## Load model input data and observations
-file_path = "./data/external/model_validation/"
-obs_salinities_avg = pd.read_feather(file_path + "mean_salinity_1min.ftr")
-obs_salinities_btm = pd.read_feather(file_path + "bottom_salinity_1min.ftr")
-lock_operations = pd.read_csv(file_path + "op_params_and_bcs.csv")
+obs_salinities_avg = pd.read_feather("./data/mean_salinity_1min.ftr")
+obs_salinities_btm = pd.read_feather("./data/bottom_salinity_1min.ftr")
+lock_operations = pd.read_csv("./data/op_params_and_bcs.csv")
 
 ## Filter lock operations and calculate inital time
 lock_operations = hf.filter_date_range(lock_operations, start, end, date_col='TS_LockageStarts')
