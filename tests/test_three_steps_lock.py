@@ -145,8 +145,8 @@ for label in ax.get_xticklabels():
 plt.show()
 
 ## Saving figure
-fig_name = 'sim_vs_obs_chamber_salinity.png'
-fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
+# fig_name = 'sim_vs_obs_chamber_salinity.png'
+# fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
 
 # %%
 
