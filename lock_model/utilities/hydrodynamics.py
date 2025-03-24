@@ -99,3 +99,15 @@ def convert_salt_concentration(S_practical, temperature):
         rho = gsw.density.rho_t_exact(SA=S_absolute, t=temperature, p=0)
         c_kg_m3 = S_absolute*rho/1000
         return c_kg_m3
+
+def calc_equalization_level(A1, A2, H1, H2):
+    """
+    Calculates the equalization level of two connected reservoir.
+    The function takes four arguments or inputs:
+    - A1: Area of the first reservoir (m2)
+    - A2: Area of the second reservoir (m2)
+    - H1: Water level (head) of the first reservoir (m)
+    - H2: Water level (head) of the second reservoir (m)
+    """
+    Hf = (A1*H1 + A2*H2) / (A1 + A2)
+    return Hf

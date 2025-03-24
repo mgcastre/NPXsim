@@ -130,21 +130,12 @@ class ThreeStepsLock:
         # Return the exchange coefficient
         return Eff
     
-    @staticmethod
-    def calc_equalization_level(res1, res2):
-        A1 = res1.area
-        A2 = res2.area
-        H1 = res1.get_current_level()
-        H2 = res2.get_current_level()
-        Hf = (A1*H1 + A2*H2) / (A1 + A2)
-        return Hf
-    
     def equalize_chamber_levels(self, lower_cham, upper_cham, ts):
         # Equalize levels between chambers
         ## 1. Calculate final level for equalization
-        lower_res = self.chambers[lower_cham]
-        upper_res = self.chambers[upper_cham]
-        Hf = self.calc_equalization_level(lower_res, upper_res)
+        W1, L1, H1 = self.extract_properties(upper_cham)
+        W2, L2, H2 = self.extract_properties(lower_cham)
+        Hf = hd.calc_equalization_level(A1=W1*L1, A2=W2*L2, H1=H1, H2=H2)
         ## 2. Drain upper chamber to equalization level
         self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
         ## 3. Fill lower chamber to equalization level
