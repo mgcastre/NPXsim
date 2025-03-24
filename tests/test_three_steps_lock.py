@@ -12,12 +12,12 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # Set the working directory
-os.chdir("D:/SURFdrive/Projects/Conceptual_Model")
+os.chdir("D:/SURFdrive/Projects/Lock_Model")
 
 # Load custom modules
-sys.path.append("src/model/lock_model")
-from three_steps_lock import ThreeStepsLock
-import helper_functions as hf
+sys.path.append("lock_model")
+from classes.three_steps_lock import ThreeStepsLock
+import utilities.helper_functions as hf
 
 # Define output figure directory
 output_dir = "./outputs/figures/lock_model/"

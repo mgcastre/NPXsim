@@ -4,9 +4,9 @@
 # Required Libraries
 import numpy as np
 import pandas as pd
-import hydrodynamics as hd
 from datetime import datetime
-from lock_elements import *
+from classes.lock_elements import *
+import utilities.hydrodynamics as hd
 
 # Define class
 class ThreeStepsLock:
