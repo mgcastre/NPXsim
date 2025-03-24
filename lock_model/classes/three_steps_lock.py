@@ -130,33 +130,33 @@ class ThreeStepsLock:
         # Return the exchange coefficient
         return Eff
     
-    def equalize_chamber_levels(self, lower_cham, upper_cham, ts):
-        # Equalize levels between chambers
-        ## 1. Calculate final level for equalization
-        W1, L1, H1 = self.extract_properties(upper_cham)
-        W2, L2, H2 = self.extract_properties(lower_cham)
-        Hf = hd.calc_equalization_level(A1=W1*L1, A2=W2*L2, H1=H1, H2=H2)
-        ## 2. Drain upper chamber to equalization level
-        self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
-        ## 3. Fill lower chamber to equalization level
-        S_next_cham = self.chambers[upper_cham].get_current_salinity()
-        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, ts=ts)
-    
     def equalize_and_cross(self, lock_head, direction, init_time):
-        # 1. Assign order of chambers depending on direction
+        # 1. Extract chambers involved in the lock head and assign order
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
         cham1, cham2 = (lower_cham, upper_cham) \
             if direction == 'up' else (upper_cham, lower_cham)
-        # 2. Equalize levels between chambers
-        ts = init_time + self.eqTime[cham1] # minutes
-        self.equalize_chamber_levels(lower_cham, upper_cham, ts)
-        # 3. Open lock gates and move ship between chambers
-        ## 2.1. Calculate volume of water to be exchanged
+        # 2. Calculate equalization level and duration
+        W1, L1, H1 = self.extract_properties(upper_cham)
+        W2, L2, H2 = self.extract_properties(lower_cham)
+        Hf = hd.calc_equalization_level(A1=W1*L1, A2=W2*L2, H1=H1, H2=H2)
+        if self.eqTime[cham1] is None:
+            eq_time = hd.calc_equalization_time(
+                A1=W1*L1, A2=W2*L2, h1_init=H1, h2_init=H2)
+            ts = init_time + eq_time
+        else:
+            ts = init_time + self.eqTime[cham1]
+        # 3. Drain upper chamber to equalization level
+        self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
+        # 4. Fill lower chamber to equalization level
+        S_next_cham = self.chambers[upper_cham].get_current_salinity()
+        self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, ts=ts)
+        # 5. Open lock gates and move ship between chambers
+        ## 5.1. Calculate volume of water to be exchanged
         Eff = self.lock_exchange_factor(lock_head)
         V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
-        ## 2.2 Calculate time stamp after crossing lock head (in minutes)
+        ## 5.2 Calculate time stamp after crossing lock head (in minutes)
         ts = ts + self.tGateOpen[lock_head]
-        ## 2.3 Move ship between chambers
+        ## 5.3 Move ship between chambers
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2, ts=ts)
