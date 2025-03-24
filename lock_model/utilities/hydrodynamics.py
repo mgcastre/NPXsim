@@ -111,3 +111,57 @@ def calc_equalization_level(A1, A2, H1, H2):
     """
     Hf = (A1*H1 + A2*H2) / (A1 + A2)
     return Hf
+
+# Define time calculation function
+def calc_equalization_time(A1, A2, h1_init, h2_init, 
+                           dt=1, e=1e-3, n_iter=1e6):
+    # TODO: Figure out the correct flowrate function (Q_func).
+    """"
+    Calculates the time required for two reservoirs with
+    different water levels to reach equilibrium using a 
+    numerical approximation. The function takes five
+    arguments or inputs:
+    - A1: Area of the first reservoir (m2)
+    - A2: Area of the second reservoir (m2)
+    - h1_init: Initial water level of the first reservoir (m)
+    - h2_init: Initial water level of the second reservoir (m)
+    - dt: Time step (s)
+    - e: Error tolerance (m)
+    - n_iter: Maximum number of iterations
+    This function returns the time required for the two
+    reservoirs to reach equilibrium and the error (in 
+    water level) at that time.
+    Note: This algorith assumes that h1_init > h2_init.
+    """
+    # Check if h1_init and h2_init are valid
+    if h1_init < h2_init:
+        raise ValueError("h1_init must be > h2_init")
+    # Check if n_iter is an integer
+    if not isinstance(n_iter, int):
+        n_iter = int(n_iter)
+    # Create empty arrays/vectors
+    time = np.empty(n_iter)
+    h1 = np.empty(n_iter)
+    h2 = np.empty(n_iter)
+    Q = np.empty(n_iter)
+    # Add initial values
+    time[0] = 0
+    h1[0] = h1_init
+    h2[0] = h2_init
+    Q[0] = 0
+    # Loop
+    try: ## Check if max number of iterations has bee reached
+        for i in range(1, n_iter+1):
+            dh = h1[i-1] - h2[i-1]
+            time[i] = time[i-1] + dt
+            h1[i] = h1[i-1] - (dt/A1)*Q[i-1]
+            h2[i] = h2[i-1] + (dt/A2)*Q[i-1]
+            Q[i] = 0.65*np.abs(dh)**(2/3)
+            # Check if error is within tolerance
+            error = np.abs(h1[i] - h2[i])
+            if error <= e:
+                break
+    except IndexError:
+        print(f"Maximum number of iterations ({n_iter}) reached.")
+        print(f"Error of {error:.2e} m is greater than tolerance ({e:.2e}) m.")
+    return time[i], error
