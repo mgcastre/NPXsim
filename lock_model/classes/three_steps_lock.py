@@ -401,7 +401,7 @@ class ThreeStepsLock:
             df.drop(columns='Time', inplace=True)
         if ffill:
             for col in ['LC', 'MC', 'UC']:
-                df[col].ffill(inplace=True)
+                df[col] = df[col].ffill()
         # Return the results dataframe
         return df
     
