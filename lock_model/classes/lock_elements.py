@@ -50,6 +50,15 @@ class ControlVolume:
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
         self.update_status(V=V_final, S=S_final, H=H_final, ts=ts)
+    
+    def get_results_dictionary(self):
+        results = {
+            'Time': self.time,
+            'Volume': self.water_volume,
+            'Level': self.water_level,
+            'Salinity': self.salinity
+        }
+        return results
 
 
 class LockChamber(ControlVolume):
