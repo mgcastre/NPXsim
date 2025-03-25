@@ -2,3 +2,4 @@ data/*
 output/*
 miscellaneous/*
 **/__pycache__/
+notebooks/*
