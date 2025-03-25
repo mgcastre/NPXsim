@@ -106,8 +106,9 @@ class NeoPanamaxLock(ThreeStepsLock):
             reservoir_low = self.basins[chamber][basin]
             Hf, time = self.equalization_params(reservoir_high, reservoir_low)
             ts = ts + time # Add equalization time (in min)to the current time stamp
+            S_lift = self.chambers[chamber].get_current_salinity()
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
-            self.basins[chamber][basin].fill_basin(H_final=Hf, ts=ts)
+            self.basins[chamber][basin].fill_basin(H_final=Hf, ts=ts, S_lift=S_lift)
         # Return final time stamp
         return ts
     
@@ -117,8 +118,9 @@ class NeoPanamaxLock(ThreeStepsLock):
             reservoir_high = self.basins[chamber][basin]
             Hf, time = self.equalization_params(reservoir_high, reservoir_low)
             ts = ts + time # Add equalization time (in min)to the current time stamp
+            S_lift = self.basins[chamber][basin].get_current_salinity()
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
-            self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts)
+            self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
         # Return final time stamp
         return ts
     
@@ -164,7 +166,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.eqTime = operation_params['eqTime']
         # Extract lockage direction and wsb use
         direction = operation_params['Direction']
-        wsb_use = operation_params['WSBs']
+        wsb_use = operation_params['WSBUse_Simple']
         # Calculate initial lockage time stamp in minutes
         lockage_start_dt = operation_params['TS_LockageStarts']
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)
