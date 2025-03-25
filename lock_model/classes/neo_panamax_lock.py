@@ -4,10 +4,10 @@
 # Required Libraries
 import numpy as np
 import pandas as pd
-import hydrodynamics as hd
 from datetime import datetime
-from lock_elements import *
-from three_steps_lock import *
+from classes.lock_elements import *
+from classes.three_steps_lock import *
+import utilities.hydrodynamics as hd
 
 # Define class
 class NeoPanamaxLock(ThreeStepsLock):
