@@ -114,7 +114,8 @@ def calc_equalization_level(A1, A2, H1, H2):
 
 # Define time calculation function
 def calc_equalization_time(A1, A2, h1_init, h2_init, 
-                           dt=1, e=1e-3, n_iter=1e6):
+                           dt=1, e=1e-3, n_iter=1e6,
+                           return_error=False):
     # TODO: Figure out the correct flowrate function (Q_func).
     """"
     Calculates the time required for two reservoirs with
@@ -164,4 +165,8 @@ def calc_equalization_time(A1, A2, h1_init, h2_init,
     except IndexError:
         print(f"Maximum number of iterations ({n_iter}) reached.")
         print(f"Error of {error:.2e} m is greater than tolerance ({e:.2e}) m.")
-    return time[i], error
+    # Return values
+    if return_error:
+        return time[i], error
+    else:
+        return time[i]
