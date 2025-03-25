@@ -31,7 +31,7 @@ lock_operations = pd.read_csv("./data/op_params_and_bcs.csv")
 
 ## Find reange of interest
 cond01 = (lock_operations['Flush'] == 0)
-cond02 = (lock_operations['WSBasin'] == 0)
+cond02 = (lock_operations['WSBasins'] == 0)
 cond03 = (lock_operations['Direction'] == 'Uplockage')
 my_operations = lock_operations \
     .loc[cond01 & cond02 & cond03, ['Num', 'TS_LockageStarts']]
@@ -69,8 +69,7 @@ initial_time = str(lock_operations['TS_LockageStarts'].iloc[0])
 ## Prepare observed salinities and extract initial salinities
 obs_salinities_avg = hf.prepare_obs_salinities(obs_salinities_avg, start, end)
 obs_salinities_btm = hf.prepare_obs_salinities(obs_salinities_btm, start, end)
-init_salinities_dict = hf.extract_initial_salinities(obs_salinities_avg, initial_time)
-initial_salinities = {'CHAM': init_salinities_dict, 'WSB': init_salinities_dict}
+initial_salinities = hf.extract_initial_salinities(obs_salinities_avg, initial_time)
 
 ## Prepare boundary conditions and operation parameters
 boundary_conditions = hf.prepare_boundary_conditions(lock_operations)
