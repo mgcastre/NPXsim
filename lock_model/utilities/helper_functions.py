@@ -25,7 +25,7 @@ def prepare_obs_salinities(df, start_date, end_date):
     """
     ## Filter data by date range
     df_filtered = filter_date_range(df, start_date, end_date, date_col='Date_Time')
-    df_filtered = df_filtered.loc[:, ['Date_Time', 'LC', 'MC', 'UC']]
+    df_filtered = df_filtered.loc[:, ['Date_Time', 'LC', 'MC', 'UC', 'LB', 'MB', 'UB']]
     df_filtered.set_index('Date_Time', inplace=True)
     ## Return filtered dataframe
     return df_filtered
@@ -69,13 +69,16 @@ def prepare_operation_parameters(lock_operations_df):
     - Ship_Vol_Disp: Ship volume displacement
     - Chamber_Length: Lock chamber length
     """
-    ## Extract operation parameters for lock operations
+    ## Define columns of interest for lock operations
     transit_time_cols = [f'transitTimeLH{i}' for i in range(1, 5)]
     eq_time_cols = [f'equalzTime{x}' for x in ['UC', 'MC', 'LC']]
     other_cols = ['TS_LocksReady', 'TS_LockageStarts', 'Direction', 
                   'Ship_Vol_Disp', 'Chamber_Length']
-    operation_params_df = lock_operations_df \
-        .loc[:, ['Num'] + transit_time_cols + eq_time_cols + other_cols]
+    wsb_use_cols = ['WSBasins'] + [f'{x}CWSBs' for x in ['U', 'M', 'L']] \
+        + [f'{x}WSB{y}' for x in ['U', 'M', 'L'] for y in ['Top', 'Int', 'Bot']]
+    ## Extract operation parameters for lock operations
+    list_of_cols = transit_time_cols + eq_time_cols + other_cols + wsb_use_cols
+    operation_params_df = lock_operations_df.loc[:, ['Num'] + list_of_cols]
     ## Add all of the transit and equalization times
     operation_params_df['Total_Lockage_Time'] = \
         operation_params_df[transit_time_cols + eq_time_cols].sum(axis=1)
@@ -105,6 +108,25 @@ def prepare_operation_parameters(lock_operations_df):
                 'LH3': item['transitTimeLH3'],
                 'LH4': item['transitTimeLH4']
             },
+            'WSB_Simple': {
+                'UC': item['UCWSBs'],
+                'MC': item['MCWSBs'],
+                'LC': item['LCWSBs']
+            },
+            'WSB_Detailed': {
+                'UC': {
+                    'Top': item['UWSBTop'],
+                    'Int': item['UWSBInt'],
+                    'Bot': item['UWSBBot']},	
+                'MC': {
+                    'Top': item['MWSBTop'],
+                    'Int': item['MWSBInt'],
+                    'Bot': item['MWSBBot']},
+                'LC': {
+                    'Top': item['LWSBTop'],
+                    'Int': item['LWSBInt'],
+                    'Bot': item['LWSBBot']}
+            }
         }
         operation_params.append(transformed_item)
     ## Return dictionary
