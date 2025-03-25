@@ -23,7 +23,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         # Initialize water saving basin objects
         self.basins = {'LC': {}, 'MC': {}, 'UC': {}}
         for cham in self.basins.keys():
-            for basin in ['Top', 'Int', 'Btm']:
+            for basin in ['Top', 'Int', 'Bot']:
                 self.basins[cham][basin] = WaterSavingBasin(
                     length=wsb_dims['L'], width=wsb_dims['W'],
                     z_bottom=wsb_bottom_elevs[cham][basin],
@@ -33,7 +33,7 @@ class NeoPanamaxLock(ThreeStepsLock):
     @staticmethod
     def calc_wsb_operational_levels(chamber_levels):
         wsb_levels = {}
-        fractions = {'Top': (3, 4), 'Int': (2, 3), 'Btm': (1, 2)}
+        fractions = {'Top': (3, 4), 'Int': (2, 3), 'Bot': (1, 2)}
         for chamber, (c_low, c_high) in chamber_levels.items():
             wsb_levels[chamber] = {}
             for basin, (n_low, n_high) in fractions.items():
@@ -61,7 +61,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             cham_init_levels[cham] = cham_op_levels[cham][op_level]
             b_level = 1 - op_level # Level of WSB is opposite of related chamber.
             wsb_init_levels[cham] = {} # Create dictionary for each chamber.
-            for basin in ['Top', 'Int', 'Btm']:
+            for basin in ['Top', 'Int', 'Bot']:
                 wsb_init_levels[cham][basin] = wsb_op_levels[cham][basin][b_level]
         return cham_init_levels, wsb_init_levels
     
@@ -79,7 +79,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers[cham].add_initial_conditions(
                 H0=cham_init_levels[cham], S0=salinities['CHAM'][cham]
             )
-            for basin in ['Top', 'Int', 'Btm']:
+            for basin in ['Top', 'Int', 'Bot']:
                 self.basins[cham][basin].add_initial_conditions(
                 H0=wsb_init_levels[cham][basin], S0=salinities['WSB'][cham]
             )

@@ -88,9 +88,9 @@ lock_head_sills_ac = {'LH1': 6.40, 'LH2': -1.99, 'LH3': -10.35, 'LH4': -18.69}
 lock_bottom_ac = {'LC': -18.69, 'MC': -10.35, 'UC': -1.99}
 
 ## Define water saving basin bottom
-wsb_bottom_elevs = {'UC': {'Top': 18.94, 'Int': 17.31, 'Btm': 15.66},
-                    'MC': {'Top': 10.73, 'Int': 9.08, 'Btm': 7.42},
-                    'LC': {'Top': 2.40, 'Int': 0.69, 'Btm': -1.07}}
+wsb_bottom_elevs = {'UC': {'Top': 18.94, 'Int': 17.31, 'Bot': 15.66},
+                    'MC': {'Top': 10.73, 'Int': 9.08, 'Bot': 7.42},
+                    'LC': {'Top': 2.40, 'Int': 0.69, 'Bot': -1.07}}
 
 ## Create NPX lock object
 AguaClara = NeoPanamaxLock(
@@ -136,7 +136,7 @@ sim_salinities.plot(color=colors, linestyle='', marker='o', ax=ax, alpha=1.0, x_
 lines, labels = ax.get_legend_handles_labels()
 leg1 = ax.legend(lines[0:3], labels[0:3], title='Obs. (Avg)', loc='upper right',
                  bbox_to_anchor=(1.13, 1.0), frameon=False)
-leg2 = ax.legend(lines[3:6], labels[3:6], title='Obs. (Btm)', loc='upper right',
+leg2 = ax.legend(lines[3:6], labels[3:6], title='Obs. (Bot)', loc='upper right',
                  bbox_to_anchor=(1.13, 0.7), frameon=False)
 leg3 = ax.legend(lines[6:9], labels[6:9], title='Simulated', loc='upper right',
                  bbox_to_anchor=(1.13, 0.4), frameon=False)
