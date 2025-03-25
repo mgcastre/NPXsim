@@ -68,6 +68,19 @@ def prepare_operation_parameters(lock_operations_df):
     - TS_LockageStarts: Lockage start time
     - Ship_Vol_Disp: Ship volume displacement
     - Chamber_Length: Lock chamber length
+    - WSBasins: Flag to indicate if WSBs are used in the lockage
+    - UCWSBs: Flag to indicate if WSBs are used in the upper chamber
+    - MCWSBs: Flag to indicate if WSBs are used in the middle chamber
+    - LCWSBs: Flag to indicate if WSBs are used in the lower chamber
+    - UWSBTop: Flag to indicate if the top WSB is used in the upper chamber is used
+    - UWSBInt: Flag to indicate if the intermediate WSB is used in the upper chamber is used
+    - UWSBBot: Flag to indicate if the bottom WSB is used in the upper chamber is used
+    - MWSBTop: Flag to indicate if the top WSB is used in the middle chamber is used
+    - MWSBInt: Flag to indicate if the intermediate WSB is used in the middle chamber is used
+    - MWSBBot: Flag to indicate if the bottom WSB is used in the middle chamber is used
+    - LWSBTop: Flag to indicate if the top WSB is used in the lower chamber is used
+    - LWSBInt: Flag to indicate if the intermediate WSB is used in the lower chamber is used
+    - LWSBBot: Flag to indicate if the bottom WSB is used in the lower chamber is
     """
     ## Define columns of interest for lock operations
     transit_time_cols = [f'transitTimeLH{i}' for i in range(1, 5)]
@@ -108,12 +121,12 @@ def prepare_operation_parameters(lock_operations_df):
                 'LH3': item['transitTimeLH3'],
                 'LH4': item['transitTimeLH4']
             },
-            'WSB_Simple': {
+            'WSBUse_Simple': {
                 'UC': item['UCWSBs'],
                 'MC': item['MCWSBs'],
                 'LC': item['LCWSBs']
             },
-            'WSB_Detailed': {
+            'WSBUse_Detailed': {
                 'UC': {
                     'Top': item['UWSBTop'],
                     'Int': item['UWSBInt'],
