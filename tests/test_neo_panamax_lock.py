@@ -128,9 +128,12 @@ sim_salinities = AguaClara.get_salinities()
 fig, ax = plt.subplots(figsize=(10, 5))
 ax.set_title('Simulated and observed salinity in lock chambers')
 ## Plot salinities
-obs_salinities_avg.plot(color=colors, linestyle='-', marker='', ax=ax, alpha=0.7, x_compat=True)
-obs_salinities_btm.plot(color=colors, linestyle='--', marker='', ax=ax, alpha=0.7, x_compat=True)
-sim_salinities.plot(color=colors, linestyle='', marker='o', ax=ax, alpha=1.0, x_compat=True)
+obs_salinities_avg[['LC', 'MC', 'UC']].plot(
+    color=colors, linestyle='-', marker='', ax=ax, alpha=0.7, x_compat=True)
+obs_salinities_btm[['LC', 'MC', 'UC']].plot(
+    color=colors, linestyle='--', marker='', ax=ax, alpha=0.7, x_compat=True)
+sim_salinities[['LC', 'MC', 'UC']].plot(
+    color=colors, linestyle='', marker='o', ax=ax, alpha=1.0, x_compat=True)
 ## Format legend
 lines, labels = ax.get_legend_handles_labels()
 leg1 = ax.legend(lines[0:3], labels[0:3], title='Obs. (Avg)', loc='upper right',
