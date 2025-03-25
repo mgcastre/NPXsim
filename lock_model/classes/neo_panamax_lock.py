@@ -76,12 +76,14 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.calc_initial_levels(cham_op_levels, wsb_op_levels, direction)
         # Add initial conditions to the lock chambers
         for cham in ['LC', 'MC', 'UC']:
+            chamber_salinity = salinities[cham]
+            basins_salinity = salinities[cham[0]+'B']
             self.chambers[cham].add_initial_conditions(
-                H0=cham_init_levels[cham], S0=salinities['CHAM'][cham]
+                H0=cham_init_levels[cham], S0=chamber_salinity
             )
             for basin in ['Top', 'Int', 'Bot']:
                 self.basins[cham][basin].add_initial_conditions(
-                H0=wsb_init_levels[cham][basin], S0=salinities['WSB'][cham]
+                H0=wsb_init_levels[cham][basin], S0=basins_salinity
             )
         # Pass the temperature to the class attribute
         self.T = water_temperature
