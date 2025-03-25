@@ -184,9 +184,11 @@ class NeoPanamaxLock(ThreeStepsLock):
         V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean)
         self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, ts=time_stamp)
         ## 3) Equalization and transit between LC and MC
-        time_stamp = self.equalize_and_cross(lock_head='LH3', direction='up', init_time=time_stamp)
+        time_stamp = self.equalize_and_cross(
+            lock_head='LH3', direction='up', wsb_use=wsb_use, init_time=time_stamp)
         ## 4) Equalization and transit between MC and UC
-        time_stamp = self.equalize_and_cross(lock_head='LH2', direction='up', init_time=time_stamp)
+        time_stamp = self.equalize_and_cross(
+            lock_head='LH2', direction='up', wsb_use=wsb_use, init_time=time_stamp)
         ## 5) Lift the ship to the level of the lake (LH1)
         time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
@@ -203,10 +205,12 @@ class NeoPanamaxLock(ThreeStepsLock):
         ## 1) Lift upper chamber to level of the lake (LH1)
         if self.chambers['UC'].get_current_level() < H_lake:
             if wsb_use['UC']:
-                # Fill the upper chamber with water from the water saving basin
-                pass
-            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=initial_time_stamp)
-            super().record_freshwater_consumed(end_luc=H_lake, ts=initial_time_stamp)
+                t_elapsed = self.fill_chamber_from_wsb(chamber='UC', ts=initial_time_stamp)
+                ts = initial_time_stamp + t_elapsed # Add time elapsed to time stamp
+            else:
+                ts = initial_time_stamp # Time stamp corresponds to the initial time stamo
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            super().record_freshwater_consumed(end_luc=H_lake, ts=ts)
         ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
@@ -216,10 +220,10 @@ class NeoPanamaxLock(ThreeStepsLock):
         super().calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='down', ts=time_stamp)
         ## 3) Equalization and transit between UC and MC
         time_stamp = self.equalize_and_cross(
-            lock_head='LH2', wsb_use=wsb_use, direction='down', init_time=time_stamp)
+            lock_head='LH2', direction='down', wsb_use=wsb_use, init_time=time_stamp)
         ## 4) Equalization and transit between MC and LC
         time_stamp = self.equalize_and_cross(
-            lock_head='LH3', wsb_use=wsb_use, direction='down', init_time=time_stamp)
+            lock_head='LH3', direction='down', wsb_use=wsb_use, init_time=time_stamp)
         ## 5) Drain to the level of the ocean (LH4)
         time_stamp = time_stamp + self.eqTime['LC'] # minutes to drain chamber
         self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
