@@ -97,41 +97,36 @@ class NeoPanamaxLock(ThreeStepsLock):
         H1 = reservoir_high.get_current_level()
         H2 = reservoir_low.get_current_level()
         Hf = hd.calc_equalization_level(A1, A2, H1, H2)
-        teq = hd.calc_equalization_time(A1, A2, H1, H2)
-        return Hf, teq/60 # Return final level and time in minutes
+        return Hf
     
-    def drain_chamber_to_wsb(self, chamber, ts):
+    def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
             reservoir_high = self.chambers[chamber]
             reservoir_low = self.basins[chamber][basin]
-            Hf, time = self.equalization_params(reservoir_high, reservoir_low)
-            ts = ts + time # Add equalization time (in min)to the current time stamp
+            Hf = self.equalization_params(reservoir_high, reservoir_low)
+            ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.chambers[chamber].get_current_salinity()
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
             self.basins[chamber][basin].fill_basin(H_final=Hf, ts=ts, S_lift=S_lift)
-        # Return final time stamp
-        return ts
     
-    def fill_chamber_from_wsb(self, chamber, ts):
+    def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
             reservoir_low = self.chambers[chamber]
             reservoir_high = self.basins[chamber][basin]
-            Hf, time = self.equalization_params(reservoir_high, reservoir_low)
-            ts = ts + time # Add equalization time (in min)to the current time stamp
+            Hf = self.equalization_params(reservoir_high, reservoir_low)
+            ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.basins[chamber][basin].get_current_salinity()
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
             self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
-        # Return final time stamp
-        return ts
     
     def equalize_and_cross(self, lock_head, direction, wsb_use, init_time):
         # 1. Drain and fill chambers with water saving basins
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
         # TODO: Figure out how to handle the time in here!
         if wsb_use[upper_cham]:
-            self.drain_chamber_to_wsb(upper_cham, ts=init_time)
+            self.drain_chamber_to_wsb(upper_cham, ts=init_time-12, teq=12)
         if wsb_use[lower_cham]:
-            self.fill_chamber_from_wsb(lower_cham, ts=init_time)
+            self.fill_chamber_from_wsb(lower_cham, ts=init_time-12, teq=12)
         # 2. Finish chamber equalization (if needed) and cross between chambers
         time_stamp = super().equalize_and_cross(lock_head, direction, init_time)
         return time_stamp
@@ -209,12 +204,11 @@ class NeoPanamaxLock(ThreeStepsLock):
         ## 1) Lift upper chamber to level of the lake (LH1)
         if self.chambers['UC'].get_current_level() < H_lake:
             if wsb_use['UC']:
-                t_elapsed = self.fill_chamber_from_wsb(chamber='UC', ts=initial_time_stamp)
-                ts = initial_time_stamp + t_elapsed # Add time elapsed to time stamp
-            else:
-                ts = initial_time_stamp # Time stamp corresponds to the initial time stamo
-            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
-            super().record_freshwater_consumed(end_luc=H_lake, ts=ts)
+                tfill = 12 # Minutes to fill chamber (assumed)
+                time0 = initial_time_stamp - tfill # minutes
+                self.fill_chamber_from_wsb(chamber='UC', ts=time0, teq=tfill)
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=initial_time_stamp)
+            super().record_freshwater_consumed(end_luc=H_lake, ts=initial_time_stamp)
         ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
