@@ -1,5 +1,5 @@
 data/*
-output/*
-miscellaneous/*
-**/__pycache__/
 notebooks/*
+outputs/*
+scripts/*
+**/__pycache__/
