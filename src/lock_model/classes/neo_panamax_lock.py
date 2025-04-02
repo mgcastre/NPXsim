@@ -230,6 +230,32 @@ class NeoPanamaxLock(ThreeStepsLock):
         time_stamp = time_stamp + t_transit # minutes
         V_ex_ocean = super().exchange_with_boundary(S_ocean=S_ocean) 
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
+    def get_results_df(self, variable):
+        list_of_dfs = []
+        for cham in ['LC', 'MC', 'UC']:
+            results = self.chambers[cham].get_results_dictionary()
+            df = pd.DataFrame(results).loc[:, ['Time', variable]]
+            df['Location'] = cham
+            list_of_dfs.append(df)
+            for basin in ['Top', 'Int', 'Bot']:
+                results = self.basins[cham][basin].get_results_dictionary()
+                df = pd.DataFrame(results).loc[:, ['Time', variable]]
+                df['Location'] = f'{cham[0]}B{basin}'
+                list_of_dfs.append(df)
+        # Concatenate all dataframes
+        df = pd.concat(list_of_dfs).reset_index(drop=True)
+        # Calculate Date_Time timestamp column and set as index
+        df['TimeTrans'] = pd.to_timedelta(df['Time'], unit='min')
+        df['Date_Time'] = pd.to_datetime(self.operation_start_dt) + df['TimeTrans']
+        df = df.drop(columns='TimeTrans')
+        df = df.set_index('Date_Time')
+        return df
+
+    def get_water_levels(self):
+        return self.get_results_df(variable='Level')
+    
+    def get_salinities(self):
+        return self.get_results_df(variable='Salinity')
 
 """     
     def turnaround():
