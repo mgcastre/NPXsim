@@ -107,7 +107,8 @@ class NeoPanamaxLock(ThreeStepsLock):
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.chambers[chamber].get_current_salinity()
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
-            self.basins[chamber][basin].fill_basin(H_final=Hf, ts=ts, S_lift=S_lift)
+            self.basins[chamber][basin].fill_basin(H_final=Hf, S_lift=S_lift, ts=ts)
+            print(f'\t{self.ts_to_datetime(ts)}: {chamber} finished draining to {basin} basin.')
     
     def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
@@ -118,8 +119,10 @@ class NeoPanamaxLock(ThreeStepsLock):
             S_lift = self.basins[chamber][basin].get_current_salinity()
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
             self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
+            print(f'\t{self.ts_to_datetime(ts)}: {chamber} finished filling from {basin} basin.')
     
-    def equalize_and_cross(self, lock_head, direction, wsb_use, init_time):
+    def equalize_and_cross(self, lock_head, direction, wsb_use, init_time, teq):
+        print(f'{self.ts_to_datetime(init_time)}: {lock_head} Equalization Started')
         # 1. Drain and fill chambers with water saving basins
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
         if wsb_use[upper_cham]:
@@ -128,6 +131,8 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.fill_chamber_from_wsb(lower_cham, ts=init_time, teq=teq)
         # 2. Finish chamber equalization (if needed) and cross between chambers
         time_stamp = super().equalize_and_cross(lock_head, direction, init_time)
+        time_eq_finished = time_stamp - teq # Time when equalization finished in minutes
+        print(f'{self.ts_to_datetime(time_eq_finished)}: {lock_head} Equalization Finished')
         return time_stamp
     
     def ts_to_datetime(self, ts_minutes):
@@ -136,7 +141,9 @@ class NeoPanamaxLock(ThreeStepsLock):
         initial_dt_object = datetime.fromisoformat(self.operation_start_dt)
         new_dt_object = initial_dt_object + timedelta(seconds=ts_minutes*60)
         return new_dt_object.strftime("%Y-%m-%d %H:%M:%S")
+    
     def operate(self, operation_params, boundary_conditions):
+        print(f'Starting lock operations at {self.operation_start_dt}')
         for i in range(len(operation_params)):
             this_transit = operation_params[i]
             self.transit(this_transit, boundary_conditions[i])
@@ -149,6 +156,8 @@ class NeoPanamaxLock(ThreeStepsLock):
                 self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
     
     def transit(self, operation_params, boundary_conditions):
+        # Extract lockage number
+        self.lockage_number = operation_params['Num']
         # Extract volume of the ship transiting the lock
         self.V_ship = operation_params['V_ship']
         # Extract boundary conditions
@@ -171,6 +180,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         lockage_start_dt = operation_params['TS_LockageStarts']
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)
         # Perform transit based on the direction
+        print(f'\nLockage {self.lockage_number} started at {lockage_start_dt}')
+        print(f'Direction: {direction.title()}lockage')
         if direction == 'up':
             self.uplockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
         elif direction == 'down':
@@ -209,6 +220,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         ## 1) Lift upper chamber to level of the lake (LH1)
         if self.chambers['UC'].get_current_level() < H_lake:
             tfill = 12 # Minutes to fill chamber (assumed)
+            print(f'{self.ts_to_datetime(initial_time_stamp-tfill)}: LH1 Equalization Started')
             if wsb_use['UC']:
                 time0 = initial_time_stamp - tfill # minutes
                 self.fill_chamber_from_wsb(chamber='UC', ts=time0, teq=tfill)
@@ -247,6 +259,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         time_stamp = time_stamp + t_transit # minutes
         V_ex_ocean = super().exchange_with_boundary(S_ocean=S_ocean) 
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
+        print(f'{self.ts_to_datetime(time_stamp)}: Lockage {self.lockage_number} finished')
+
     def get_results_df(self, variable):
         list_of_dfs = []
         for cham in ['LC', 'MC', 'UC']:
