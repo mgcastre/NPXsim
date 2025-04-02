@@ -4,7 +4,7 @@
 # Required Libraries
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from classes.lock_elements import *
 from classes.three_steps_lock import *
 import utilities.hydrodynamics as hd
@@ -130,7 +130,13 @@ class NeoPanamaxLock(ThreeStepsLock):
         # 2. Finish chamber equalization (if needed) and cross between chambers
         time_stamp = super().equalize_and_cross(lock_head, direction, init_time)
         return time_stamp
-
+    
+    def ts_to_datetime(self, ts_minutes):
+        # Convert elapsed minutes to a datetime object,
+        # assuming the elapsed time is in minutes since the start of the operation
+        initial_dt_object = datetime.fromisoformat(self.operation_start_dt)
+        new_dt_object = initial_dt_object + timedelta(seconds=ts_minutes*60)
+        return new_dt_object.strftime("%Y-%m-%d %H:%M:%S")
     def operate(self, operation_params, boundary_conditions):
         for i in range(len(operation_params)):
             this_transit = operation_params[i]
