@@ -223,8 +223,15 @@ class NeoPanamaxLock(ThreeStepsLock):
         time_stamp = self.equalize_and_cross(
             lock_head='LH3', direction='down', wsb_use=wsb_use, init_time=time_stamp)
         ## 5) Drain to the level of the ocean (LH4)
-        time_stamp = time_stamp + self.eqTime['LC'] # minutes to drain chamber
-        self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
+        if self.chambers['LC'].get_current_level() > H_ocean:
+            print(f'{self.ts_to_datetime(time_stamp)}: LH4 Equalization Started')
+            ## 5.1) Drain water from chamber to WSB (if needed)
+            if wsb_use['LC']:
+                self.drain_chamber_to_wsb(chamber='LC', ts=time_stamp, teq=self.eqTime['LC'])
+            ## 5.2) Finish draining chamber to the level of the ocean
+            time_stamp = time_stamp + self.eqTime['LC'] # total minutes to drain chamber
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=time_stamp)
+            print(f'{self.ts_to_datetime(time_stamp)}: LC finished draining')
         ## 6) Gates at LH4 open, salinity enters from the ocean and ship leaves the lock
         t_transit = self.tGateOpen['LH4'] # minutes
         time_stamp = time_stamp + t_transit # minutes
