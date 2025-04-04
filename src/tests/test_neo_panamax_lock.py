@@ -15,44 +15,19 @@ import matplotlib.dates as mdates
 os.chdir("D:/SURFdrive/Projects/Lock_Model")
 
 # Load custom modules
-sys.path.append("lock_model")
-from classes.neo_panamax_lock import NeoPanamaxLock
+sys.path.append("./src/lock_model")
 import utilities.helper_functions as hf
+import utilities.plotting_functions as pf
+from classes.neo_panamax_lock import NeoPanamaxLock
 
 # Define output figure directory
 output_dir = "./outputs/figures/lock_model/"
 
 # %%
 
-# Verify lockage data
-
-## Read lock operations data
-lock_operations = pd.read_csv("./data/op_params_and_bcs.csv")
-
-## Find reange of interest
-cond01 = (lock_operations['Flush'] == 0)
-cond02 = (lock_operations['WSBasins'] == 0)
-cond03 = (lock_operations['Direction'] == 'Uplockage')
-my_operations = lock_operations \
-    .loc[cond01 & cond02 & cond03, ['Num', 'TS_LockageStarts']]
-
-# %%
-
 # Prepare model input data and observations
 
-## Define time period for simulation (downlockages)
-# start = '2023-10-11 10:00:00'
-# end = '2023-10-11 20:00:00'
-
-## Define time period for simulation (uplockages)
-# start = '2023-11-03 23:00:00'
-# end = '2023-11-04 10:00:00'
-
-## Define time period to test turnaround time
-# start = '2023-10-31 00:00:00'
-# end = '2023-11-01 20:00:00'
-
-## Define time period to test WSBs
+## Define time period to test WSBs (downlockages)
 start = '2023-10-23 10:00:00'
 end = '2023-10-23 22:00:00'
 
@@ -91,7 +66,7 @@ wsb_bottom_elevs = {'UC': {'Top': 18.94, 'Int': 17.31, 'Bot': 15.66},
                     'MC': {'Top': 10.73, 'Int': 9.08, 'Bot': 7.42},
                     'LC': {'Top': 2.40, 'Int': 0.69, 'Bot': -1.07}}
 
-## Create NPX lock object
+# Create NPX lock object
 AguaClara = NeoPanamaxLock(
     lock_bottom_elevs = lock_bottom_ac,
     lock_head_sills = lock_head_sills_ac,
@@ -116,114 +91,62 @@ AguaClara.operate(operation_params, boundary_conditions)
 
 # %%
 
-# Plot simulated and observed salinity in lock chambers
+# Plot simulated and observed water levels
 
-## Pick colors
-colors = ['royalblue', 'green', 'darkorange']
+## Extract simulated water level in each chamber and basin
+sim_levels_raw = AguaClara.get_water_levels()
 
-## Extract simulated results
-sim_salinities = AguaClara.get_salinities()
+## Pivot table to have columns for each location
+sim_levels = sim_levels_raw.pivot(columns='Location', values='Level')
+sim_levels = sim_levels[sorted(sim_levels.columns, reverse=True)]
 
-## Initialize plot
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.set_title('Simulated and observed salinity in lock chambers')
-## Plot salinities
-obs_salinities_avg[['LC', 'MC', 'UC']].plot(
-    color=colors, linestyle='-', marker='', ax=ax, alpha=0.7, x_compat=True)
-obs_salinities_btm[['LC', 'MC', 'UC']].plot(
-    color=colors, linestyle='--', marker='', ax=ax, alpha=0.7, x_compat=True)
-sim_salinities[['LC', 'MC', 'UC']].plot(
-    color=colors, linestyle='', marker='o', ax=ax, alpha=1.0, x_compat=True)
-## Format legend
-lines, labels = ax.get_legend_handles_labels()
-leg1 = ax.legend(lines[0:3], labels[0:3], title='Obs. (Avg)', loc='upper right',
-                 bbox_to_anchor=(1.13, 1.0), frameon=False)
-leg2 = ax.legend(lines[3:6], labels[3:6], title='Obs. (Bot)', loc='upper right',
-                 bbox_to_anchor=(1.13, 0.7), frameon=False)
-leg3 = ax.legend(lines[6:9], labels[6:9], title='Simulated', loc='upper right',
-                 bbox_to_anchor=(1.13, 0.4), frameon=False)
-ax.add_artist(leg1)
-ax.add_artist(leg2)
-## Format axes
-ax.set_ylim(0, 35)
-ax.set_xlabel('Time')
-ax.set_xlim(start, end)
-ax.set_ylabel('Salinity (PSU)')
-date_form = mdates.DateFormatter("%H:%M")
-ax.xaxis.set_major_formatter(date_form)
-ax.xaxis.set_tick_params(rotation=0, )
-for label in ax.get_xticklabels():
-    label.set_horizontalalignment('center')
-## Display plot
-plt.show()
+## Forward fill and them interpolate every minute
+sim_levels = sim_levels.ffill(limit_area='iniside')
+
+## Extract lock operations times
+lock_times = lock_operations['TS_LockageStarts'].tolist()
+
+## Define colors, linestyles and markers
+my_colors = ['darkorange', 'green', 'royalblue']
+
+## Make plot
+pf.plot_water_levels(sim_levels, lock_times, start, end, figsize=(11, 5),
+                     colors=my_colors, linestyles=['--', '-.', ':'],
+                     return_fig=False)
 
 ## Saving figure
-# fig_name = 'sim_vs_obs_chamber_salinity.png'
+# fig_name = 'sim_vs_obs_water_levels.png'
 # fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
 
 # %%
 
-# Plot simulated and observed water levels in lock chambers
+# Plot simulated and observed salinities
 
-## Extract simulated water levels for upper chamber
-sim_water_levels = AguaClara.get_water_levels()
-sim_water_levels.ffill(inplace=True)
+## Extract simulated water level in each chamber and basin
+sim_salinities_raw = AguaClara.get_salinities()
 
-## Pick colors
-colors = ['royalblue', 'green', 'darkorange']
+## Pivot table to have columns for each location
+sim_salinities = sim_salinities_raw.pivot(columns='Location', values='Salinity')
+sim_salinities = sim_salinities[sorted(sim_salinities.columns, reverse=True)]
 
-## Define operational water levels
-y_top = [9.38, 18.28, 27.13]
-y_bottom = [-0.39, 7.95, 16.31]
+## Calculate mean observed salinities every 15 minutes
+obs_salinities_5min = obs_salinities_btm.resample('5min').mean()
 
-## Initializa plot
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.set_title('Simulated and observed water level in lock chambers')
-## Plotting obs water levels
-obs_water_levels.plot(
-    ax=ax, color='darkorange', marker='o', 
-    linestyle='', alpha=1.0)
-## Plotting sim water levels
-sim_water_levels.plot(
-    ax=ax, color=colors, marker='', 
-    linestyle='-', alpha=0.8)
-## Plotting operational water levels
-for i, chamber in enumerate(['UC', 'MC', 'LC']):
-    ax.axhline(y=y_top[i], linestyle='--', 
-               color=colors[i], alpha=0.3, 
-               label=chamber)
-    ax.axhline(y=y_bottom[i], linestyle='--', 
-               color=colors[i], alpha=0.3, 
-               label=None)
-## Formatting x-axis
-ax.set_xlabel('Time')
-ax.set_xlim(start, end)
-date_form = mdates.DateFormatter("%H:%M")
-ax.xaxis.set_major_formatter(date_form)
-ax.xaxis.set_tick_params(rotation=0)
-for label in ax.get_xticklabels():
-    label.set_horizontalalignment('center')
-## Formatting legend
-lines, labels = ax.get_legend_handles_labels()
-leg1 = ax.legend([lines[0]], [labels[0]], frameon=False, loc='upper right',
-                 bbox_to_anchor=(1.13, 1.0), title='Observed',)
-leg2 = ax.legend(lines[1:4], labels[1:4], frameon=False, loc='upper right',
-                 bbox_to_anchor=(1.13, 0.77), title='Simulated')
-leg3 = ax.legend(lines[4:7], labels[4:7], frameon=False, loc='upper right',
-                 title='Operational \n water levels',
-                 bbox_to_anchor=(1.15, 0.4))
-legs = [leg1, leg2, leg3]
-for leg in legs:
-    ax.add_artist(leg)
-    leg.set_in_layout(True)
-## Formatting y-ax1s
-plt.ylabel('Water level (m)')
-plt.ylim(-2, 28)
-## Displaying plot
-plt.show()
+## Rename columns to match simulated salinities
+for x in ['U', 'M', 'L']:
+    obs_salinities_5min.rename(columns={f'{x}B': f'{x}BInt'}, inplace=True)
+
+## Interpolate salinities
+sim_salinities_int = sim_salinities.ffill(limit_area='iniside')
+
+## Plot salinities in chambers and intermediate basins
+for res in ['Chambers', 'Basins']:
+    pf.plot_salinities(obs=obs_salinities_5min, sim=sim_salinities_int, lock_times=lock_times,
+                       xlims=[start, end], ylims=[0, 30], reservoirs=res, colors=my_colors, 
+                       styles={'Sim': '-', 'Obs': 'o'}, figsize=(11, 5), return_fig=False)
 
 ## Saving figure
-# fig_name = 'sim_vs_obs_water_levels.png'
+# fig_name = 'sim_vs_obs_chamber_salinity.png'
 # fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
 # %%
 
