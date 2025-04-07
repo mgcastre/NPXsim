@@ -157,6 +157,7 @@ class NeoPanamaxLock(ThreeStepsLock):
                 break
             if this_transit['Direction'] != next_transit['Direction']:
                 ts = self.calc_elapsed_minutes(next_transit['TS_LocksReady']) - 30
+                print(f'\n{self.ts_to_datetime(ts)}: TURNAROUND')
                 self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
     
     def transit(self, operation_params, boundary_conditions):
@@ -314,8 +315,12 @@ class NeoPanamaxLock(ThreeStepsLock):
     
     def get_salinities(self):
         return self.get_results_df(variable='Salinity')
-
-"""     
-    def turnaround():
-        pass 
-"""
+    def turnaround(self, boundary_conditions, new_direction, tinit):
+        # Record current conditions before initiating turnaround
+        self.chambers['MC'].record_current_status(ts=tinit)
+        if new_direction == 'up':
+            self.chambers['UC'].record_current_status(ts=tinit)
+        elif new_direction == 'down':
+            self.chambers['LC'].record_current_status(ts=tinit)
+        # Perform turnaround operation
+        super().turnaround(boundary_conditions, new_direction, tinit)
