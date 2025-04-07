@@ -38,6 +38,11 @@ class ControlVolume:
         self.water_volume.append(V)
         self.salinity.append(S)
     
+    def record_current_status(self, ts):
+        H = self.get_current_level()
+        V, S = self.get_current_status()
+        self.update_status(V=V, S=S, H=H, ts=ts)
+    
     def _drain(self, H_final, ts):
         V_final = (H_final - self.z_bottom)*self.area
         # Although water level changes, salinity remains constant
