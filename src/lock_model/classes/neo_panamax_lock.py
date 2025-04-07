@@ -289,7 +289,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
         print(f'{self.ts_to_datetime(time_stamp)}: Lockage {self.lockage_number} finished')
 
-    def get_results_df(self, variable):
+    def get_results_df(self, variable, pivot=True, interpolate=True):
         list_of_dfs = []
         for cham in ['LC', 'MC', 'UC']:
             results = self.chambers[cham].get_results_dictionary()
@@ -308,13 +308,25 @@ class NeoPanamaxLock(ThreeStepsLock):
         df['Date_Time'] = pd.to_datetime(self.operation_start_dt) + df['TimeTrans']
         df = df.drop(columns='TimeTrans')
         df = df.set_index('Date_Time')
+        if pivot:
+            df = df.drop_duplicates()
+            df = df.pivot(columns='Location', values=variable)
+        if interpolate:
+            df = df.resample('1min').mean()
+            df = df.reindex(pd.date_range(df.index[0], df.index[-1], freq='1min'))
+            df = df.interpolate(method='linear', limit_area='inside')
+            df = df.ffill()
         return df
 
-    def get_water_levels(self):
-        return self.get_results_df(variable='Level')
+    def get_water_levels(self, pivot=True, interpolate=True):
+        df = self.get_results_df('Level', pivot=pivot, interpolate=interpolate)
+        return df
     
-    def get_salinities(self):
-        return self.get_results_df(variable='Salinity')
+    def get_salinities(self, pivot=True, interpolate=True):
+        df = self.get_results_df('Salinity', pivot=pivot, interpolate=interpolate)
+        return df
+
+    
     def turnaround(self, boundary_conditions, new_direction, tinit):
         # Record current conditions before initiating turnaround
         self.chambers['MC'].record_current_status(ts=tinit)
