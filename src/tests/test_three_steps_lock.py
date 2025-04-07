@@ -15,26 +15,13 @@ import matplotlib.dates as mdates
 os.chdir("D:/SURFdrive/Projects/Lock_Model")
 
 # Load custom modules
-sys.path.append("lock_model")
-from classes.three_steps_lock import ThreeStepsLock
+sys.path.append("./src/lock_model")
 import utilities.helper_functions as hf
+import utilities.plotting_functions as pf
+from classes.three_steps_lock import ThreeStepsLock
 
 # Define output figure directory
 output_dir = "./outputs/figures/lock_model/"
-
-# %%
-
-# Verify lockage data
-
-## Read lock operations data
-lock_operations = pd.read_csv("./data/op_params_and_bcs.csv")
-
-## Find reange of interest
-cond01 = (lock_operations['Flush'] == 0)
-cond02 = (lock_operations['WSBasin'] == 0)
-cond03 = (lock_operations['Direction'] == 'Uplockage')
-my_operations = lock_operations \
-    .loc[cond01 & cond02 & cond03, ['Num', 'TS_LockageStarts']]
 
 # %%
 
@@ -47,10 +34,18 @@ my_operations = lock_operations \
 ## Define time period for simulation (uplockages)
 # start = '2023-11-03 23:00:00'
 # end = '2023-11-04 10:00:00'
+                          
+## Define time period to test turnaround time (1)
+# start = '2023-10-31 08:00:00'
+# end = '2023-10-31 14:00:00'
 
-## Define time period to test turnaround time
-start = '2023-10-31 00:00:00'
-end = '2023-11-01 20:00:00'
+## Define time period to test turnaround time (2)
+start = '2023-10-19 06:00:00'
+end = '2023-10-19 12:00:00'
+
+## Define time period to test long sequence of lockages
+# start = '2023-10-31 00:00:00'
+# end = '2023-11-01 20:00:00'
 
 ## Load model input data and observations
 obs_salinities_avg = pd.read_feather("./data/mean_salinity_1min.ftr")
@@ -114,35 +109,15 @@ colors = ['royalblue', 'green', 'darkorange']
 ## Extract simulated results
 sim_salinities = AguaClara.get_salinities()
 
-## Initialize plot
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.set_title('Simulated and observed salinity in lock chambers')
-## Plot salinities
-obs_salinities_avg.plot(color=colors, linestyle='', marker='.', ax=ax, alpha=0.3, x_compat=True)
-obs_salinities_btm.plot(color=colors, linestyle='', marker='.', ax=ax, alpha=0.3, x_compat=True)
-sim_salinities.plot(color=colors, linestyle='-', marker='', ax=ax, alpha=1.0, x_compat=True)
-## Format legend
-lines, labels = ax.get_legend_handles_labels()
-leg1 = ax.legend(lines[0:3], labels[0:3], title='Obs. (Avg)', loc='upper right',
-                 bbox_to_anchor=(1.13, 1.0), frameon=False)
-leg2 = ax.legend(lines[3:6], labels[3:6], title='Obs. (Btm)', loc='upper right',
-                 bbox_to_anchor=(1.13, 0.7), frameon=False)
-leg3 = ax.legend(lines[6:9], labels[6:9], title='Simulated', loc='upper right',
-                 bbox_to_anchor=(1.13, 0.4), frameon=False)
-ax.add_artist(leg1)
-ax.add_artist(leg2)
-## Format axes
-ax.set_ylim(0, 35)
-ax.set_xlabel('Time')
-ax.set_xlim(start, end)
-ax.set_ylabel('Salinity (PSU)')
-date_form = mdates.DateFormatter("%H:%M")
-ax.xaxis.set_major_formatter(date_form)
-ax.xaxis.set_tick_params(rotation=0, )
-for label in ax.get_xticklabels():
-    label.set_horizontalalignment('center')
-## Display plot
-plt.show()
+## Calculate mean observed salinities every 15 minutes
+obs_salinities_5min = obs_salinities_btm.resample('5min').mean()
+
+## Plot simulated and observed salinities in lock chambers
+my_colors = ['darkorange', 'green', 'royalblue']
+lock_times = lock_operations['TS_LockageStarts'].tolist()
+pf.plot_salinities(obs=obs_salinities_5min, sim=sim_salinities, lock_times=lock_times,
+                    xlims=[start, end], ylims=[0, 30], reservoirs='Chambers', colors=my_colors, 
+                    styles={'Sim': '-', 'Obs': 'o'}, figsize=(11, 5), return_fig=False)
 
 ## Saving figure
 # fig_name = 'sim_vs_obs_chamber_salinity.png'

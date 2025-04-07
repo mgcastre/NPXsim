@@ -28,8 +28,28 @@ output_dir = "./outputs/figures/lock_model/"
 # Prepare model input data and observations
 
 ## Define time period to test WSBs (downlockages)
-start = '2023-10-23 10:00:00'
-end = '2023-10-23 22:00:00'
+# start = '2023-10-23 10:00:00'
+# end = '2023-10-23 22:00:00'
+
+## Define time period to test WSBs (uplockage)
+# start = '2023-10-18 23:00:00'
+# end = '2023-10-19 10:00:00'
+
+## Define time period to test turnaround time (1)
+# start = '2023-10-19 06:00:00'
+# end = '2023-10-19 12:00:00'
+
+## Define time period to test turnaround time (2)
+start = '2023-10-19 18:00:00'
+end = '2023-10-20 06:00:00'
+
+## Define time period to test long sequence of lockages (1)
+# start = '2023-10-31 00:00:00'
+# end = '2023-11-01 20:00:00'
+
+## Define time period to test long sequence of lockages (2)
+# start = '2023-10-18 23:00:00'
+# end = '2023-10-19 21:00:00'
 
 ## Load model input data and observations
 file_path = "./data/external/model_validation/"
@@ -94,14 +114,8 @@ AguaClara.operate(operation_params, boundary_conditions)
 # Plot simulated and observed water levels
 
 ## Extract simulated water level in each chamber and basin
-sim_levels_raw = AguaClara.get_water_levels()
-
-## Pivot table to have columns for each location
-sim_levels = sim_levels_raw.pivot(columns='Location', values='Level')
+sim_levels = AguaClara.get_water_levels()
 sim_levels = sim_levels[sorted(sim_levels.columns, reverse=True)]
-
-## Forward fill and them interpolate every minute
-sim_levels = sim_levels.ffill(limit_area='iniside')
 
 ## Extract lock operations times
 lock_times = lock_operations['TS_LockageStarts'].tolist()
@@ -111,7 +125,7 @@ my_colors = ['darkorange', 'green', 'royalblue']
 
 ## Make plot
 pf.plot_water_levels(sim_levels, lock_times, start, end, figsize=(11, 5),
-                     colors=my_colors, linestyles=['--', '-.', ':'],
+                     colors=my_colors, linestyles=['-', '--', '-.', ':'],
                      return_fig=False)
 
 ## Saving figure
@@ -123,25 +137,19 @@ pf.plot_water_levels(sim_levels, lock_times, start, end, figsize=(11, 5),
 # Plot simulated and observed salinities
 
 ## Extract simulated water level in each chamber and basin
-sim_salinities_raw = AguaClara.get_salinities()
-
-## Pivot table to have columns for each location
-sim_salinities = sim_salinities_raw.pivot(columns='Location', values='Salinity')
+sim_salinities = AguaClara.get_salinities()
 sim_salinities = sim_salinities[sorted(sim_salinities.columns, reverse=True)]
 
 ## Calculate mean observed salinities every 15 minutes
-obs_salinities_5min = obs_salinities_btm.resample('5min').mean()
+obs_salinities_5min = obs_salinities_avg.resample('5min').mean()
 
 ## Rename columns to match simulated salinities
 for x in ['U', 'M', 'L']:
     obs_salinities_5min.rename(columns={f'{x}B': f'{x}BInt'}, inplace=True)
 
-## Interpolate salinities
-sim_salinities_int = sim_salinities.ffill(limit_area='iniside')
-
 ## Plot salinities in chambers and intermediate basins
 for res in ['Chambers', 'Basins']:
-    pf.plot_salinities(obs=obs_salinities_5min, sim=sim_salinities_int, lock_times=lock_times,
+    pf.plot_salinities(obs=obs_salinities_5min, sim=sim_salinities, lock_times=lock_times,
                        xlims=[start, end], ylims=[0, 30], reservoirs=res, colors=my_colors, 
                        styles={'Sim': '-', 'Obs': 'o'}, figsize=(11, 5), return_fig=False)
 
@@ -150,4 +158,4 @@ for res in ['Chambers', 'Basins']:
 # fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
 # %%
 
-# TODO: Calculate model performance (NRMSE and Bias).
+# TODO: Figure out what happened with the dummy lockage (Num 7471 in Agua Clara).
