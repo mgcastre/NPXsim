@@ -192,22 +192,43 @@ class NeoPanamaxLock(ThreeStepsLock):
     def uplockage(self, initial_time_stamp, wsb_use, S_ocean, H_ocean, S_lake, H_lake):
         ## 1) Drain the lock chamber to the level of the ocean (LH4)
         if self.chambers['LC'].get_current_level() > H_ocean:
+            tdrain = 12 # Minutes to drain chamber (assumed)
+            self.chambers['LC'].record_current_status(ts=initial_time_stamp-tdrain)
+            print(f'{self.ts_to_datetime(initial_time_stamp-tdrain)}: LH4 Equalization Started')
+            if wsb_use['LC']:
+                time0 = initial_time_stamp - tdrain # minutes
+                self.drain_chamber_to_wsb(chamber='LC', ts=time0, teq=tdrain)
             self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=initial_time_stamp)
+            print(f'{self.ts_to_datetime(initial_time_stamp)}: LC finished draining to ocean level')
+        else:
+            print(f'{self.ts_to_datetime(initial_time_stamp)}: LH4 Already Equalized')
         ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
         t_transit = self.tGateOpen['LH4'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
         V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean)
         self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, ts=time_stamp)
         ## 3) Equalization and transit between LC and MC
+        teq = self.eqTime['LC'] # minutes
         time_stamp = self.equalize_and_cross(
-            lock_head='LH3', direction='up', wsb_use=wsb_use, init_time=time_stamp)
+            lock_head='LH3', direction='up', wsb_use=wsb_use, init_time=time_stamp, teq=teq)
         ## 4) Equalization and transit between MC and UC
+        teq = self.eqTime['MC'] # minutes
         time_stamp = self.equalize_and_cross(
-            lock_head='LH2', direction='up', wsb_use=wsb_use, init_time=time_stamp)
+            lock_head='LH2', direction='up', wsb_use=wsb_use, init_time=time_stamp, teq=teq)
         ## 5) Lift the ship to the level of the lake (LH1)
-        time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
-        self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
-        self.record_freshwater_consumed(end_luc=H_lake, ts=time_stamp)
+        if self.chambers['UC'].get_current_level() < H_lake:
+            self.chambers['UC'].record_current_status(ts=time_stamp)
+            print(f'{self.ts_to_datetime(time_stamp)}: LH1 Equalization Started')
+            ## 5.1) Fill water from WSB (if needed)
+            if wsb_use['UC']:
+                self.fill_chamber_from_wsb(chamber='UC', ts=time_stamp, teq=self.eqTime['UC'])
+            ## 5.2) Finish filling chamber to the level of the lake
+            time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
+            print(f'{self.ts_to_datetime(time_stamp)}: UC finished filling to lake level')
+            super().record_freshwater_consumed(end_luc=H_lake, ts=time_stamp)
+        else:
+            print(f'{self.ts_to_datetime(time_stamp)}: LH1 Already Equalized')
         ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = time_stamp + t_transit # minutes
