@@ -35,20 +35,20 @@ class NeoPanamaxLock(ThreeStepsLock):
         wsb_levels = {}
         fractions = {'Top': (3, 4), 'Int': (2, 3), 'Bot': (1, 2)}
         for chamber, (c_low, c_high) in chamber_levels.items():
-            wsb_levels[chamber] = {}
             for basin, (n_low, n_high) in fractions.items():
+                my_key = f'{chamber[0]}B{basin}'
                 level_low = c_low + (n_low/5)*(c_high - c_low)
                 level_high = c_low + (n_high/5)*(c_high - c_low)
-                wsb_levels[chamber][basin] = (level_low, level_high)
+                wsb_levels[my_key] = (level_low, level_high)
         return wsb_levels
     
     def calc_operational_levels(self, H_lake, H_ocean):
         cham_op_levels = super().calc_operational_levels(H_lake, H_ocean)
         wsb_op_levels = self.calc_wsb_operational_levels(cham_op_levels)
-        return cham_op_levels, wsb_op_levels
+        return {**cham_op_levels, **wsb_op_levels}
     
     @staticmethod
-    def calc_initial_levels(cham_op_levels, wsb_op_levels, direction):
+    def calc_initial_levels(operational_levels, direction):
         cham_init_levels = {}
         wsb_init_levels = {}
         # For uplockage, the lower chamber is at the level of the ocean (low level)
@@ -57,13 +57,13 @@ class NeoPanamaxLock(ThreeStepsLock):
         # and the rest of the chambers are at their lower operational levels.
         levels_dict = {'up': {'LC': 0, 'MC': 1, 'UC': 1}, 
                        'down': {'LC': 0, 'MC': 0, 'UC': 1}}
-        for cham, op_level in levels_dict[direction].items():
-            cham_init_levels[cham] = cham_op_levels[cham][op_level]
-            b_level = 1 - op_level # Level of WSB is opposite of related chamber.
-            wsb_init_levels[cham] = {} # Create dictionary for each chamber.
+        for cham, c_level in levels_dict[direction].items():
+            cham_init_levels[cham] = operational_levels[cham][c_level]
+            b_level = 1 - c_level # Level of WSB is opposite of related chamber.
             for basin in ['Top', 'Int', 'Bot']:
-                wsb_init_levels[cham][basin] = wsb_op_levels[cham][basin][b_level]
-        return cham_init_levels, wsb_init_levels
+                my_key = f'{cham[0]}B{basin}'
+                wsb_init_levels[my_key] = operational_levels[my_key][b_level]
+        return {**cham_init_levels, **wsb_init_levels}
     
     def set_initial_conditions(self, boundary_conditions, salinities, 
                                direction, operation_start_dt, 
@@ -71,19 +71,19 @@ class NeoPanamaxLock(ThreeStepsLock):
         # Calculate initial operational water levels
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
-        cham_op_levels, wsb_op_levels = self.calc_operational_levels(H_lake, H_ocean)
-        cham_init_levels, wsb_init_levels = \
-            self.calc_initial_levels(cham_op_levels, wsb_op_levels, direction)
+        op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        initial_levels = self.calc_initial_levels(op_levels, direction)
         # Add initial conditions to the lock chambers
         for cham in ['LC', 'MC', 'UC']:
             chamber_salinity = salinities[cham]
             basins_salinity = salinities[cham[0]+'B']
             self.chambers[cham].add_initial_conditions(
-                H0=cham_init_levels[cham], S0=chamber_salinity
+                H0=initial_levels[cham], S0=chamber_salinity
             )
             for basin in ['Top', 'Int', 'Bot']:
                 self.basins[cham][basin].add_initial_conditions(
-                H0=wsb_init_levels[cham][basin], S0=basins_salinity
+                H0=initial_levels[cham[0]+'B'+basin],
+                S0=basins_salinity
             )
         # Pass the temperature to the class attribute
         self.T = water_temperature
