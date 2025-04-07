@@ -9,7 +9,8 @@ import matplotlib.dates as mdates
 # Define function to plot simulated water levels
 def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
                       colors=['darkorange', 'green', 'royalblue'],
-                      linestyles=['--', '-.', ':'], 
+                      linestyles=['-', '--', '-.', ':'], 
+                      markers=['', '', '', ''],
                       return_fig=False):
     ## Initialize plot
     fig, ax = plt.subplots(figsize=figsize)
@@ -20,10 +21,12 @@ def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
     ## Plot water levels
     for i, cham in enumerate(['U', 'M', 'L']):
         ### Plot levels of lock chamber
-        sim.loc[:, f'{cham}C'].plot(linestyle='-', ax=ax, alpha=0.8, x_compat=True, color=colors[i], lw=2)
+        sim.loc[:, f'{cham}C'].plot(ax=ax, alpha=0.8, x_compat=True, color=colors[i], 
+                                    linestyle=linestyles[0], lw=2, marker=markers[0])
         ### Plot levels of WSBs
         for j, wsb in enumerate([f'{cham}B{x}' for x in ['Top', 'Int', 'Bot']]):
-            sim.loc[:, wsb].plot(linestyle=linestyles[j], ax=ax, alpha=0.7, x_compat=True, color=colors[i], lw=1.7)
+            sim.loc[:, wsb].plot(ax=ax, alpha=0.7, x_compat=True, color=colors[i], 
+                                 linestyle=linestyles[j+1], lw=1.7, marker=markers[j+1])
 
     ## Format axes
     ax.set_xlabel('Time')
