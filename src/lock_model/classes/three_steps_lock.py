@@ -32,7 +32,7 @@ class ThreeStepsLock:
         # Initialize dict to store salt mass load to the lake
         self.salt_mass_load = {'TS': [], 'DC': [], 'VD': []}
         # Initialize dict to store freshwater consumed per lockage
-        self.freshwater_consumed = {'TS': [], 'M3': []}
+        self.freshwater_consumed = {'TS': [], 'ConsMMC': []}
     
     def calc_operational_levels(self, H_lake, H_ocean):
         # Extract chamber areas
@@ -181,15 +181,16 @@ class ThreeStepsLock:
             m_vd = -1*self.V_ship*c1
         elif direction == 'down':
             m_vd = self.V_ship*c2
+        # Recording salt mass load in UK Tonnes
         self.salt_mass_load['TS'].append(ts)
-        self.salt_mass_load['DC'].append(m_dc)
-        self.salt_mass_load['VD'].append(m_vd)
+        self.salt_mass_load['DC'].append(m_dc/1000)
+        self.salt_mass_load['VD'].append(m_vd/1000)
     
-    def record_freshwater_consumed(self, end_luc, ts):
-        start_luc = self.chambers['UC'].water_level[-1]
+    def record_freshwater_consumed(self, start_luc, end_luc, ts):
+        # Recording amount of freshwater used in million cubic meters
         vol = (end_luc - start_luc)*self.chambers['UC'].area
+        self.freshwater_consumed['ConsMMC'].append(vol/1e6)
         self.freshwater_consumed['TS'].append(ts)
-        self.freshwater_consumed['M3'].append(vol)
     
     def exchange_with_boundary(self, S_lake=None, S_ocean=None):
         if S_lake is not None:
@@ -267,9 +268,10 @@ class ThreeStepsLock:
         ## 4) Equalization and transit between MC and UC
         time_stamp = self.equalize_and_cross(lock_head='LH2', direction='up', init_time=time_stamp)
         ## 5) Lift the ship to the level of the lake (LH1)
+        start_luc = self.chambers['UC'].get_current_level()
         time_stamp = time_stamp + self.eqTime['UC'] # minutes to fill chamber
         self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=time_stamp)
-        self.record_freshwater_consumed(end_luc=H_lake, ts=time_stamp)
+        self.record_freshwater_consumed(start_luc=start_luc, end_luc=H_lake, ts=time_stamp)
         ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = time_stamp + t_transit # minutes
@@ -281,8 +283,9 @@ class ThreeStepsLock:
     def downlockage(self, initial_time_stamp, S_ocean, H_ocean, S_lake, H_lake):
         ## 1) Lift upper chamber to level of the lake (LH1)
         if self.chambers['UC'].get_current_level() < H_lake:
+            start_luc = self.chambers['UC'].get_current_level()
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=initial_time_stamp)
-            self.record_freshwater_consumed(end_luc=H_lake, ts=initial_time_stamp)
+            self.record_freshwater_consumed(start_luc=start_luc, end_luc=H_lake, ts=initial_time_stamp)
         ## 2) Gates at LH1 open, salt mass enters the lake and ship enters the lock
         t_transit = self.tGateOpen['LH1'] # minutes
         time_stamp = initial_time_stamp + t_transit # minutes
