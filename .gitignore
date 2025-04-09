@@ -3,3 +3,4 @@ notebooks/*
 outputs/*
 scripts/*
 **/__pycache__/
+*.log
