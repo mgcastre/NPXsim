@@ -130,7 +130,7 @@ class ThreeStepsLock:
         # Return the exchange coefficient
         return Eff
     
-    def equalize_and_cross(self, lock_head, direction, init_time):
+    def equalize_and_cross(self, lock_head, direction, init_time, return_Hf=False):
         # 1. Extract chambers involved in the lock head and assign order
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
         cham1, cham2 = (lower_cham, upper_cham) \
@@ -161,7 +161,10 @@ class ThreeStepsLock:
         S_cham2 = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2, ts=ts)
         self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1, ts=ts)
-        return ts
+        if return_Hf:
+            return ts, Hf
+        else:
+            return ts
     
     def calc_volume_exchanged(self, Eff, cham):
         Hf = self.chambers[cham].get_current_level()
