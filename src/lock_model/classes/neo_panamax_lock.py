@@ -16,7 +16,7 @@ class NeoPanamaxLock(ThreeStepsLock):
                  wsb_dims, wsb_bottom_elevs):
         
         # Initialize parent class
-        super().__init__(lock_length=430, lock_width=55, 
+        super().__init__(lock_length=458, lock_width=55, 
                          lock_bottom_elevs=lock_bottom_elevs, 
                          lock_head_sills=lock_head_sills)
 
@@ -336,3 +336,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers['LC'].record_current_status(ts=tinit)
         # Perform turnaround operation
         super().turnaround(boundary_conditions, new_direction, tinit)
+
+# TODO: 1) Add flags to check if water level in chambers and basins
+#       is outside of safe conditions.
+#       2) Add log and debug flags to the programme.
