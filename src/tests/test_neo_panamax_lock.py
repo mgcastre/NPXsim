@@ -40,7 +40,8 @@ output_dir = "./outputs/figures/lock_model/"
 # end = '2023-10-19 12:00:00'
 
 ## Define time period to test turnaround time (2)
-start = '2023-10-19 18:00:00'
+# start = '2023-10-19 18:00:00'
+start = '2023-10-19 22:00:00'
 end = '2023-10-20 06:00:00'
 
 ## Define time period to test long sequence of lockages (1)
