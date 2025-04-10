@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from classes.lock_elements import *
 from classes.three_steps_lock import *
+from classes.custom_exceptions import *
 import utilities.hydrodynamics as hd
 
 # Configure logging
@@ -125,6 +126,28 @@ class NeoPanamaxLock(ThreeStepsLock):
         logger.debug(f'{" "*24}Initial {cham[0]}B{basin} level = {H2:.2f} m')
         return Hf
     
+    @staticmethod
+    def check_operating_limits(loc, Hf, H_min, H_max, threshold=0.1):
+        if Hf < H_min or Hf > H_max:
+            logger.error(f"Equalization level {Hf:.2f} m is outside the safe operating limits of "
+                         f"{loc} ({H_min:.2f} to {H_max:.2f} m)")
+        elif round(Hf-H_min, 2) <= threshold:
+            logger.warning(f"Equalization level {Hf:.2f} m is within "
+                           f"{threshold} m of minimum operating limit of {loc} ({H_min:.2f} m)")
+        elif round(H_max-Hf, 2) <= threshold:
+            logger.warning(f"Equalization level {Hf:.2f} m is within "
+                           f"{threshold} m of maximum operating limit of {loc} ({H_max:.2f} m)")
+
+    def check_cham_operating_limits(self, Hf, chamber):
+        # 1) Check if equalization level is above chamber bottom
+        z_bottom = self.chambers[chamber].z_bottom
+        if self.chambers[chamber].H_min < z_bottom:
+            logger.critical(f"Equalization level ({Hf:0.2f} m) is below chamber bottom ({z_bottom:.2f} m)")
+            raise EmptyReservoirError(level=Hf, bottom=z_bottom, time='N/A')
+        # 2) Check if equalization level is within operating limits
+        H_min, H_max = self.chambers[chamber].get_operating_limits()
+        self.check_operating_limits(loc=chamber, Hf=Hf, H_max=H_max, H_min=H_min)
+
     def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
             self.basins[chamber][basin].record_current_status(ts=ts)
