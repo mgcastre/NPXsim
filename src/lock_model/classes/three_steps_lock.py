@@ -2,11 +2,22 @@
 # M. G. Castrellon | 18 March 2025
 
 # Required Libraries
+import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from classes.lock_elements import *
 import utilities.hydrodynamics as hd
+
+# Set up logging
+logger = logging.getLogger(__name__)
+console_handler = logging.StreamHandler()
+logger.addHandler(console_handler)
+logger.setLevel(logging.DEBUG)
+
+# Define logger formatters
+formatter = logging.Formatter("{levelname}: {message}", style="{")
+console_handler.setFormatter(formatter)
 
 # Define class
 class ThreeStepsLock:
