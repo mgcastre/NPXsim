@@ -1,23 +1,20 @@
 # ThreeStepsLock class for Panama Canal's lock model
 # M. G. Castrellon | 18 March 2025
 
-# Required Libraries
+# Import Libraries
 import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from classes.lock_elements import *
+from classes.custom_exceptions import *
 import utilities.hydrodynamics as hd
 
-# Set up logging
-logger = logging.getLogger(__name__)
-console_handler = logging.StreamHandler()
-logger.addHandler(console_handler)
-logger.setLevel(logging.DEBUG)
-
-# Define logger formatters
-formatter = logging.Formatter("{levelname}: {message}", style="{")
-console_handler.setFormatter(formatter)
+# Config logging
+logging.basicConfig(
+    level=logging.WARNING, 
+    format='%(levelname)s - %(message)s'
+)
 
 # Define class
 class ThreeStepsLock:
@@ -139,42 +136,49 @@ class ThreeStepsLock:
         # Return the exchange coefficient
         return Eff
     
-    def equalize_and_cross(self, lock_head, direction, init_time, return_Hf=False):
-        # 1. Extract chambers involved in the lock head and assign order
-        lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
-        cham1, cham2 = (lower_cham, upper_cham) \
-            if direction == 'up' else (upper_cham, lower_cham)
-        # 2. Calculate equalization level and duration
+    def equalize_chambers(self, upper_cham, lower_cham, ts):
+        # 1. Calculate final equalization level
         W1, L1, H1 = self.extract_properties(upper_cham)
         W2, L2, H2 = self.extract_properties(lower_cham)
         Hf = hd.calc_equalization_level(A1=W1*L1, A2=W2*L2, H1=H1, H2=H2)
-        if self.eqTime[cham1] is None:
-            eq_time = hd.calc_equalization_time(
-                A1=W1*L1, A2=W2*L2, h1_init=H1, h2_init=H2)
-            ts = init_time + eq_time
-        else:
-            ts = init_time + self.eqTime[cham1]
-        # 3. Drain upper chamber to equalization level
+        # 2. Drain upper chamber to equalization level
         self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
-        # 4. Fill lower chamber to equalization level
+        # 3. Fill lower chamber to equalization level
         S_next_cham = self.chambers[upper_cham].get_current_salinity()
         self.chambers[lower_cham].fill_chamber(H_final=Hf, S_lift=S_next_cham, ts=ts)
-        # 5. Open lock gates and move ship between chambers
-        ## 5.1. Calculate volume of water to be exchanged
-        Eff = self.lock_exchange_factor(lock_head)
-        V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
-        ## 5.2 Calculate time stamp after crossing lock head (in minutes)
-        ts = ts + self.tGateOpen[lock_head]
-        ## 5.3 Move ship between chambers
+        return Hf
+    
+    def move_ship(self, cham1, cham2, V_ex, ts):
         S_cham1 = self.chambers[cham1].get_current_salinity()
         S_cham2 = self.chambers[cham2].get_current_salinity()
         self.chambers[cham1].ship_leaves(V_rhs=V_ex, S_rhs=S_cham2, ts=ts)
         self.chambers[cham2].ship_enters(V_lhs=V_ex, S_lhs=S_cham1, ts=ts)
-        if return_Hf:
-            return ts, Hf
-        else:
-            return ts
     
+    def equalize_and_cross(self, lock_head, direction, init_time):
+        # 1. Extract chambers involved in the lock head and assign order
+        lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
+        cham1, cham2 = (lower_cham, upper_cham) \
+            if direction == 'up' else (upper_cham, lower_cham)
+        # 2. Equalize upper and lower chambers
+        ts = init_time + self.eqTime[cham1] # minutes
+        logging.debug(f"Initial {upper_cham} level: {self.chambers[upper_cham].get_current_level()} m")
+        logging.debug(f"Initial {lower_cham} level: {self.chambers[lower_cham].get_current_level()} m")
+        Hf = self.equalize_chambers(upper_cham, lower_cham, ts)
+        # 3. Check if equalization level is within operational limits
+        for cham in [upper_cham, lower_cham]:
+            H_min, H_max = self.chambers[cham].get_operating_limits()
+            if (H_min > Hf) or (Hf > H_max):
+                raise WaterLevelError(Hf, H_min, H_max, res_name=cham)
+        # 3. Open lock gates and move ship between chambers
+        ## 3.1. Calculate volume of water to be exchanged
+        Eff = self.lock_exchange_factor(lock_head)
+        V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
+        ## 3.2 Calculate time stamp after crossing lock head (in minutes)
+        ts = ts + self.tGateOpen[lock_head]
+        ## 3.3 Move ship from first to second chamber
+        self.move_ship(cham1, cham2, V_ex, ts)
+        return ts
+
     def calc_volume_exchanged(self, Eff, cham):
         Hf = self.chambers[cham].get_current_level()
         if cham == 'UC':
