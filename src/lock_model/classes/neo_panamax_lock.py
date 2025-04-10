@@ -422,6 +422,4 @@ class NeoPanamaxLock(ThreeStepsLock):
         df = self.get_results_df('Salinity', pivot=pivot, interpolate=interpolate)
         return df
 
-# TODO: 1) Add flags to check if water level in chambers and basins
-#       is outside of safe conditions.
-#       2) Add log and debug flags to the programme.
+# TODO: Check why error messages of water outside of safe operating limits do not make sense.
