@@ -78,14 +78,18 @@ obs_water_levels = hf.extract_obs_water_levels(lock_operations, filling_time=10)
 
 ## Define lock sills and bottom elevations
 lock_head_sills_ac = {'LH1': 6.40, 'LH2': -1.99, 'LH3': -10.35, 'LH4': -18.69}
-lock_bottom_ac = {'LC': -18.69, 'MC': -10.35, 'UC': -1.99}
+cham_bottom_ac = {'LC': -18.69, 'MC': -10.35, 'UC': -1.99}
+
+## Define lock operating limits
+cham_op_limits = {'LC': (-0.39, 9.38), 'MC': (7.95, 18.28), 'UC': (16.31, 27.13)}
 
 ## Create NPX lock object
 AguaClara = ThreeStepsLock(
     lock_length = 430, # m
     lock_width = 55, # m
-    lock_bottom_elevs = lock_bottom_ac,
+    cham_bottom_elevs = cham_bottom_ac,
     lock_head_sills = lock_head_sills_ac,
+    operating_limits = cham_op_limits,
 )
 
 # %%
@@ -138,9 +142,9 @@ sim_water_levels.ffill(inplace=True)
 ## Pick colors
 colors = ['royalblue', 'green', 'darkorange']
 
-## Define operational water levels
-y_top = [9.38, 18.28, 27.13]
-y_bottom = [-0.39, 7.95, 16.31]
+## Define water level operating limits
+H_max = [9.38, 18.28, 27.13]
+H_min = [-0.39, 7.95, 16.31]
 
 ## Initializa plot
 fig, ax = plt.subplots(figsize=(10, 5))
@@ -155,10 +159,10 @@ sim_water_levels.plot(
     linestyle='-', alpha=0.8)
 ## Plotting operational water levels
 for i, chamber in enumerate(['UC', 'MC', 'LC']):
-    ax.axhline(y=y_top[i], linestyle='--', 
+    ax.axhline(y=H_max[i], linestyle='--', 
                color=colors[i], alpha=0.3, 
                label=chamber)
-    ax.axhline(y=y_bottom[i], linestyle='--', 
+    ax.axhline(y=H_min[i], linestyle='--', 
                color=colors[i], alpha=0.3, 
                label=None)
 ## Formatting x-axis
