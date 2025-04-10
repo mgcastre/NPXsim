@@ -29,13 +29,15 @@ file_handler.setLevel("DEBUG")
 # Define class
 class NeoPanamaxLock(ThreeStepsLock):
 
-    def __init__(self, lock_bottom_elevs, lock_head_sills, 
-                 wsb_dims, wsb_bottom_elevs):
+    def __init__(self, lock_head_sills, wsb_dims, cham_bottom_elevs, 
+                 chamber_operating_limits, wsb_bottom_elevs,
+                 wsb_operating_limits):
         
         # Initialize parent class
         super().__init__(lock_length=458, lock_width=55, 
-                         lock_bottom_elevs=lock_bottom_elevs, 
-                         lock_head_sills=lock_head_sills)
+                         lock_bottom_elevs=cham_bottom_elevs, 
+                         lock_head_sills=lock_head_sills, 
+                         operating_limits=chamber_operating_limits)
 
         # Initialize water saving basin objects
         self.basins = {'LC': {}, 'MC': {}, 'UC': {}}
@@ -44,7 +46,8 @@ class NeoPanamaxLock(ThreeStepsLock):
                 self.basins[cham][basin] = WaterSavingBasin(
                     length=wsb_dims['L'], width=wsb_dims['W'],
                     z_bottom=wsb_bottom_elevs[cham][basin],
-                    S0=None, H0=None
+                    H_min=wsb_operating_limits[cham][basin][0],
+                    H_max=wsb_operating_limits[cham][basin][1]
                 )
     
     @staticmethod

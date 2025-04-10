@@ -22,14 +22,16 @@ console_handler.setFormatter(formatter)
 # Define class
 class ThreeStepsLock:
 
-    def __init__(self, lock_length, lock_width, 
-                 lock_bottom_elevs, lock_head_sills):
+    def __init__(self, lock_length, lock_width, cham_bottom_elevs, 
+                 lock_head_sills, operating_limits):
         # Initialize lock chamber objects
         self.chambers = {}
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham] = LockChamber(
                 length=lock_length, width=lock_width,
-                z_bottom=lock_bottom_elevs[cham],
+                z_bottom=cham_bottom_elevs[cham],
+                H_min=operating_limits[cham][0],
+                H_max=operating_limits[cham][1],
                 S0=None, H0=None
             )
         # Create attributes for lock heads

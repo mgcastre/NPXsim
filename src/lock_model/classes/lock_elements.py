@@ -3,20 +3,26 @@
 
 class ControlVolume:
 
-    def __init__(self, length, width, z_bottom, H0=None, S0=None):
+    def __init__(self, length, width, z_bottom, 
+                 H_min, H_max, H0=None, S0=None):
         self.length = length
         self.width = width
         self.z_bottom = z_bottom
         self.area = length*width
+        self.H_min = H_min
+        self.H_max = H_max
         if H0 is not None and S0 is not None:
             self.add_initial_conditions(H0, S0)
-    
+  
     def add_initial_conditions(self, H0, S0):
         V0 = (H0 - self.z_bottom)*self.area
         self.water_volume = [V0]
         self.water_level = [H0]
         self.salinity = [S0]
         self.time = [0] # minutes
+    
+    def get_operating_limits(self):
+        return self.H_min, self.H_max
     
     def get_current_salinity(self):
         return self.salinity[-1]
@@ -68,8 +74,8 @@ class ControlVolume:
 
 class LockChamber(ControlVolume):
     
-    def __init__(self, length, width, z_bottom, H0=None, S0=None):
-        super().__init__(length, width, z_bottom, H0, S0)
+    def __init__(self, length, width, z_bottom, H_min, H_max, H0=None, S0=None):
+        super().__init__(length, width, z_bottom, H_min, H_max, H0, S0)
     
     def change_length(self, new_length):
         self.length = new_length
@@ -100,8 +106,8 @@ class LockChamber(ControlVolume):
 
 class WaterSavingBasin(ControlVolume):
 
-    def __init__(self, length, width, z_bottom, H0=None, S0=None):
-        super().__init__(length, width, z_bottom, H0, S0)
+    def __init__(self, length, width, z_bottom, H_min, H_max):
+        super().__init__(length, width, z_bottom, H_min, H_max)
     
     def drain_basin(self, H_final, ts):
         super()._drain(H_final=H_final, ts=ts)
