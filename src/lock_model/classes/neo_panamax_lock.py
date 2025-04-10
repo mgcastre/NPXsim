@@ -11,20 +11,21 @@ from classes.three_steps_lock import *
 from classes.custom_exceptions import *
 import utilities.hydrodynamics as hd
 
-# Configure logging
+# Get logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Setup console handler
 console_handler = logging.StreamHandler()
-file_handler = logging.FileHandler("app.log", mode="w", encoding="utf-8")
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(logging.Formatter("{levelname}: {message}", style="{"))
 logger.addHandler(console_handler)
-logger.addHandler(file_handler)
 
-# Define logger formatters
-console_handler.setFormatter(logging.Formatter("{message}", style="{"))
+# Setup file handler
+file_handler = logging.FileHandler("app.log", mode="w", encoding="utf-8")
 file_handler.setFormatter(logging.Formatter("{levelname}: {message}", style="{"))
-
-# Set logger levels
-console_handler.setLevel("WARNING")
-file_handler.setLevel("DEBUG")
+file_handler.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
 
 # Define class
 class NeoPanamaxLock(ThreeStepsLock):
