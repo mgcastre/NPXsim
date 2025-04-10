@@ -23,7 +23,7 @@ console_handler.setFormatter(logging.Formatter("{message}", style="{"))
 file_handler.setFormatter(logging.Formatter("{levelname}: {message}", style="{"))
 
 # Set logger levels
-console_handler.setLevel("INFO")
+console_handler.setLevel("DEBUG")
 file_handler.setLevel("DEBUG")
 
 # Define class
@@ -107,40 +107,37 @@ class NeoPanamaxLock(ThreeStepsLock):
         # Add master initial operation start time
         self.operation_start_dt = operation_start_dt
     
-    @staticmethod
-    def equalization_params(reservoir_high, reservoir_low):
-        A1 = reservoir_high.area
-        A2 = reservoir_low.area
-        H1 = reservoir_high.get_current_level()
-        H2 = reservoir_low.get_current_level()
+    def equalization_level(self, cham, basin):
+        A1 = self.chambers[cham].area
+        A2 = self.basins[cham][basin].area
+        H1 = self.chambers[cham].get_current_level()
+        H2 = self.basins[cham][basin].get_current_level()
         Hf = hd.calc_equalization_level(A1, A2, H1, H2)
+        logger.debug(f'{" "*24}Initial {cham} level = {H1:.2f} m')
+        logger.debug(f'{" "*24}Initial {cham[0]}B{basin} level = {H2:.2f} m')
         return Hf
     
     def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
-            reservoir_high = self.chambers[chamber]
-            reservoir_low = self.basins[chamber][basin]
-            reservoir_low.record_current_status(ts=ts)
-            Hf = self.equalization_params(reservoir_high, reservoir_low)
+            self.basins[chamber][basin].record_current_status(ts=ts)
+            Hf = self.equalization_level(cham=chamber, basin=basin)
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.chambers[chamber].get_current_salinity()
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
             self.basins[chamber][basin].fill_basin(H_final=Hf, S_lift=S_lift, ts=ts)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished draining to {basin} basin')
-            logger.debug(f'\t\t\t\t\tEqualization level = {Hf:.2f} m')
+            logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
     
     def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
-            reservoir_low = self.chambers[chamber]
-            reservoir_high = self.basins[chamber][basin]
-            reservoir_high.record_current_status(ts=ts)
-            Hf = self.equalization_params(reservoir_high, reservoir_low)
+            self.basins[chamber][basin].record_current_status(ts=ts)
+            Hf = self.equalization_level(cham=chamber, basin=basin)
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.basins[chamber][basin].get_current_salinity()
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
             self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished filling from {basin} basin')
-            logger.debug(f'\t\t\t\t\tEqualization level = {Hf:.2f} m')
+            logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
     
     def equalize_and_cross(self, lock_head, direction, wsb_use, init_time, teq):
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
@@ -153,10 +150,14 @@ class NeoPanamaxLock(ThreeStepsLock):
         if wsb_use[lower_cham]:
             self.fill_chamber_from_wsb(lower_cham, ts=init_time, teq=teq)
         # 2. Finish chamber equalization (if needed) and cross between chambers
+        H_init_lower = self.chambers[lower_cham].get_current_level()
+        H_init_upper = self.chambers[upper_cham].get_current_level()
+        logger.debug(f'{" "*24}{lower_cham} initial level = {H_init_lower:.2f} m')
+        logger.debug(f'{" "*24}{upper_cham} initial level = {H_init_upper:.2f} m')
         time_stamp, Hf = super().equalize_and_cross(lock_head, direction, init_time, return_Hf=True)
         time_eq_finished = time_stamp - teq # Time when equalization finished in minutes
         logger.info(f'[{self.ts_to_datetime(time_eq_finished)}] - {lock_head} Equalization Finished')
-        logger.debug(f'\t\t\t\t\tEqualization level = {Hf:.2f} m')
+        logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
         return time_stamp
     
     def ts_to_datetime(self, ts_minutes):
@@ -224,8 +225,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         # Log freshwater consumption and salt load per lockage
         water_cons = self.freshwater_consumed["ConsMMC"][-1]
         salt_load = (self.salt_mass_load["DC"][-1], self.salt_mass_load["VD"][-1])
-        logger.debug(f'Salt Load (tonnes): DC = {salt_load[0]:.1f}, VD = {salt_load[1]:.1f}')
-        logger.debug(f'Amount of water consumed: {water_cons:.3f} hm3')
+        logger.debug(f'{" "*24}Salt Load (tonnes): DC = {salt_load[0]:.1f}, VD = {salt_load[1]:.1f}')
+        logger.debug(f'{" "*24}Amount of water consumed: {water_cons:.3f} hm3')
         
     
     def uplockage(self, initial_time_stamp, wsb_use, S_ocean, H_ocean, S_lake, H_lake):
