@@ -45,7 +45,7 @@ class ThreeStepsLock:
         # Initialize dict to store freshwater consumed per lockage
         self.freshwater_consumed = {'TS': [], 'ConsMMC': []}
     
-    def calc_operational_levels(self, H_lake, H_ocean):
+    def calc_cham_operational_levels(self, H_lake, H_ocean):
         # Extract chamber areas
         Au = self.chambers['UC'].area
         Am = self.chambers['MC'].area
@@ -67,22 +67,19 @@ class ThreeStepsLock:
         # Return operational levels
         return cham_op_levels
     
-    @staticmethod
-    def calc_initial_levels(cham_op_levels, direction):
-        cham_init_levels = {}
+    def calc_initial_levels(self, H_lake, H_ocean, direction):
+        op_levels = self.calc_cham_operational_levels(H_lake, H_ocean)
+        # During both uplockages and downlocakges, the UC initial level
+        # is the lake level (higher level). Similarly, the LC initial level
+        # is the level of the ocean (lower level) for both lockage directions.
+        init_levels = {'LC': op_levels['LC'][0], 'UC': op_levels['UC'][1]}
+        # During uplockages, the MC starts at its high level.
         if direction == 'up':
-            # For uplockage, the lower chamber is at the level of the ocean
-            # and the rest of the chambers are at their higher operational levels.
-            cham_init_levels['LC'] = cham_op_levels['LC'][0]
-            cham_init_levels['MC'] = cham_op_levels['MC'][1]
-            cham_init_levels['UC'] = cham_op_levels['UC'][1]
+            init_levels['MC'] = op_levels['MC'][1]
+        # During downlockages, the MC starts at its low level.
         if direction == 'down':
-            # For downlockage, the upper chamber is at the level of the lake
-            # and the rest of the chambers are at their lower operational levels.
-            cham_init_levels['UC'] = cham_op_levels['UC'][1]
-            cham_init_levels['MC'] = cham_op_levels['MC'][0]
-            cham_init_levels['LC'] = cham_op_levels['LC'][0]
-        return cham_init_levels
+            init_levels['MC'] = op_levels['MC'][0]
+        return init_levels
     
     def set_initial_conditions(self, boundary_conditions, salinities, 
                                direction, operation_start_dt, 
@@ -90,12 +87,11 @@ class ThreeStepsLock:
         # Calculate initial operational water levels
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
-        cham_op_levels = self.calc_operational_levels(H_lake, H_ocean)
-        cham_init_levels = self.calc_initial_levels(cham_op_levels, direction)
+        init_levels = self.calc_initial_levels(H_lake, H_ocean, direction)
         # Add initial conditions to the lock chambers
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham].add_initial_conditions(
-                H0=cham_init_levels[cham], S0=salinities[cham]
+                H0=init_levels[cham], S0=salinities[cham]
             )
         # Pass the temperature to the class attribute
         self.T = water_temperature
@@ -326,7 +322,7 @@ class ThreeStepsLock:
         S_lake = boundary_conditions['S_lake']
         H_lake = boundary_conditions['H_lake']
         # Calculate lock operational levels
-        op_levels = self.calc_operational_levels(H_lake, H_ocean)
+        op_levels = self.calc_cham_operational_levels(H_lake, H_ocean)
         # A) From downlockage to uplockage:
         if new_direction == 'up':
             ## 1. Fill UC to the level of the Lake
