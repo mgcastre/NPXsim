@@ -126,26 +126,29 @@ class NeoPanamaxLock(ThreeStepsLock):
         return Hf
     
     @staticmethod
-    def check_operating_limits(loc, Hf, H_min, H_max, threshold=0.1):
-        if (Hf < H_min) or (Hf > H_max):
-            logger.error(f"Equalization level {Hf:.2f} m is outside the safe operating limits of "
-                         f"{loc} ({H_min:.2f} to {H_max:.2f} m)")
+    def check_operating_limits(loc, Hf, H_min, H_max, time_stamp, threshold=0.1):
+        if (Hf < H_min) or (H_max < Hf):
+            logger.error(f"[{time_stamp}] Equalization level {Hf:.2f} m is outside "
+                         f"the safe operating limits of {loc} ({H_min:.2f} to {H_max:.2f} m)")
         elif round(Hf-H_min, 2) <= threshold:
-            logger.warning(f"Equalization level {Hf:.2f} m is within "
+            logger.warning(f"[{time_stamp}] Equalization level {Hf:.2f} m is within "
                            f"{threshold} m of minimum operating limit of {loc} ({H_min:.2f} m)")
         elif round(H_max-Hf, 2) <= threshold:
-            logger.warning(f"Equalization level {Hf:.2f} m is within "
+            logger.warning(f"[{time_stamp}] Equalization level {Hf:.2f} m is within "
                            f"{threshold} m of maximum operating limit of {loc} ({H_max:.2f} m)")
 
-    def check_cham_operating_limits(self, Hf, chamber):
-        # 1) Check if equalization level is above chamber bottom
+    def check_cham_operating_limits(self, Hf, chamber, time_stamp):
+        # 1) Convert time stamp to datetime
+        time_stamp = self.ts_to_datetime(time_stamp)
+        # 2) Check if equalization level is above chamber bottom
         z_bottom = self.chambers[chamber].z_bottom
         if self.chambers[chamber].H_min < z_bottom:
-            logger.critical(f"Equalization level ({Hf:0.2f} m) is below chamber bottom ({z_bottom:.2f} m)")
-            raise EmptyReservoirError(level=Hf, bottom=z_bottom, time='N/A')
-        # 2) Check if equalization level is within operating limits
+            logger.critical(f"[{time_stamp}] Equalization level ({Hf:0.2f} m) "
+                           f"is below {chamber} bottom ({z_bottom:.2f} m)")
+            raise EmptyReservoirError(level=Hf, bottom=z_bottom)
+        # 3) Check if equalization level is within operating limits
         H_min, H_max = self.chambers[chamber].get_operating_limits()
-        self.check_operating_limits(loc=chamber, Hf=Hf, H_max=H_max, H_min=H_min)
+        self.check_operating_limits(chamber, Hf, H_max, H_min, time_stamp)
 
     def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
@@ -188,7 +191,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         Hf = super().equalize_chambers(upper_cham, lower_cham, ts=time_stamp)
         # 3. Check if equalization level is within operating limits
         for chamber in [upper_cham, lower_cham]:
-            self.check_cham_operating_limits(Hf, chamber)
+            self.check_cham_operating_limits(Hf, chamber, time_stamp)
         logger.info(f'[{self.ts_to_datetime(time_stamp)}] - {lock_head} Equalization Finished')
         logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
         # 4. Open lock gates and move ship between chambers
