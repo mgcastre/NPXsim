@@ -17,14 +17,13 @@ console_handler = logging.StreamHandler()
 file_handler = logging.FileHandler("app.log", mode="w", encoding="utf-8")
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
-logger.setLevel(logging.DEBUG)
 
 # Define logger formatters
 console_handler.setFormatter(logging.Formatter("{message}", style="{"))
 file_handler.setFormatter(logging.Formatter("{levelname}: {message}", style="{"))
 
 # Set logger levels
-console_handler.setLevel("DEBUG")
+console_handler.setLevel("WARNING")
 file_handler.setLevel("DEBUG")
 
 # Define class
@@ -36,8 +35,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         
         # Initialize parent class
         super().__init__(lock_length=458, lock_width=55, 
-                         lock_bottom_elevs=cham_bottom_elevs, 
                          lock_head_sills=lock_head_sills, 
+                         cham_bottom_elevs=cham_bottom_elevs, 
                          operating_limits=chamber_operating_limits)
 
         # Initialize water saving basin objects
@@ -128,7 +127,7 @@ class NeoPanamaxLock(ThreeStepsLock):
     
     @staticmethod
     def check_operating_limits(loc, Hf, H_min, H_max, threshold=0.1):
-        if Hf < H_min or Hf > H_max:
+        if (Hf < H_min) or (Hf > H_max):
             logger.error(f"Equalization level {Hf:.2f} m is outside the safe operating limits of "
                          f"{loc} ({H_min:.2f} to {H_max:.2f} m)")
         elif round(Hf-H_min, 2) <= threshold:
@@ -180,15 +179,28 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.drain_chamber_to_wsb(upper_cham, ts=init_time, teq=teq)
         if wsb_use[lower_cham]:
             self.fill_chamber_from_wsb(lower_cham, ts=init_time, teq=teq)
-        # 2. Finish chamber equalization (if needed) and cross between chambers
+        # 2. Finish equalization between chambers
         H_init_lower = self.chambers[lower_cham].get_current_level()
         H_init_upper = self.chambers[upper_cham].get_current_level()
         logger.debug(f'{" "*24}{lower_cham} initial level = {H_init_lower:.2f} m')
         logger.debug(f'{" "*24}{upper_cham} initial level = {H_init_upper:.2f} m')
-        time_stamp, Hf = super().equalize_and_cross(lock_head, direction, init_time, return_Hf=True)
-        time_eq_finished = time_stamp - teq # Time when equalization finished in minutes
-        logger.info(f'[{self.ts_to_datetime(time_eq_finished)}] - {lock_head} Equalization Finished')
+        time_stamp = init_time + teq # Time stamp for the end of the equalization
+        Hf = super().equalize_chambers(upper_cham, lower_cham, ts=time_stamp)
+        # 3. Check if equalization level is within operating limits
+        for chamber in [upper_cham, lower_cham]:
+            self.check_cham_operating_limits(Hf, chamber)
+        logger.info(f'[{self.ts_to_datetime(time_stamp)}] - {lock_head} Equalization Finished')
         logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
+        # 4. Open lock gates and move ship between chambers
+        ## 4.1. Calculate volume of water to be exchanged
+        Eff = self.lock_exchange_factor(lock_head)
+        V_ex = self.calc_volume_exchanged(Eff=Eff, cham=upper_cham)
+        ## 4.2 Calculate time stamp after crossing lock head (in minutes)
+        time_stamp = time_stamp + self.tGateOpen[lock_head]
+        ## 4.3 Move ship from first to second chamber
+        cham1, cham2 = (lower_cham, upper_cham) \
+            if direction == 'up' else (upper_cham, lower_cham)
+        self.move_ship(cham1, cham2, V_ex, time_stamp)
         return time_stamp
     
     def ts_to_datetime(self, ts_minutes):
@@ -239,13 +251,6 @@ class NeoPanamaxLock(ThreeStepsLock):
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)
         # Print log messages
         logger.info(f'[{lockage_start_dt}] - LOCKAGE {str(self.Num)} ({direction.upper()}) STARTS')
-        # logger.debug(f'\tLock Operating Levels:')
-        # for key, value in op_levels.items():
-        #     logger.debug(f'\t\t{key}: {value}')
-        # logger.debug(f'\tLock Initial Levels:')
-        # for c in ['U', 'M', 'L']:
-        #     for b in ['C', 'BTop', 'BInt', 'BBot']:
-        #         logger.debug(f'\t\t{c+b}: {initial_levels[c+b]}')
         # Perform transit based on the direction
         if direction == 'up':
             self.uplockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
@@ -256,8 +261,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         # Log freshwater consumption and salt load per lockage
         water_cons = self.freshwater_consumed["ConsMMC"][-1]
         salt_load = (self.salt_mass_load["DC"][-1], self.salt_mass_load["VD"][-1])
-        logger.debug(f'{" "*24}Salt Load (tonnes): DC = {salt_load[0]:.1f}, VD = {salt_load[1]:.1f}')
-        logger.debug(f'{" "*24}Amount of water consumed: {water_cons:.3f} hm3')
+        logger.info(f'{" "*24}Salt Load (tonnes): DC = {salt_load[0]:.1f}, VD = {salt_load[1]:.1f}')
+        logger.info(f'{" "*24}Amount of water consumed: {water_cons:.3f} hm3')
         
     
     def uplockage(self, initial_time_stamp, wsb_use, S_ocean, H_ocean, S_lake, H_lake):
