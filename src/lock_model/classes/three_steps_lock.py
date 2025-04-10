@@ -161,8 +161,10 @@ class ThreeStepsLock:
             if direction == 'up' else (upper_cham, lower_cham)
         # 2. Equalize upper and lower chambers
         ts = init_time + self.eqTime[cham1] # minutes
-        logging.debug(f"Initial {upper_cham} level: {self.chambers[upper_cham].get_current_level()} m")
-        logging.debug(f"Initial {lower_cham} level: {self.chambers[lower_cham].get_current_level()} m")
+        logging.debug(f"Initial {upper_cham} level: "
+                      f"{self.chambers[upper_cham].get_current_level()} m")
+        logging.debug(f"Initial {lower_cham} level: "
+                      f"{self.chambers[lower_cham].get_current_level()} m")
         Hf = self.equalize_chambers(upper_cham, lower_cham, ts)
         # 3. Check if equalization level is within operational limits
         for cham in [upper_cham, lower_cham]:
