@@ -30,15 +30,14 @@ logger.addHandler(file_handler)
 # Define class
 class NeoPanamaxLock(ThreeStepsLock):
 
-    def __init__(self, lock_head_sills, wsb_dims, cham_bottom_elevs, 
-                 chamber_operating_limits, wsb_bottom_elevs,
+    def __init__(self, lock_head_sills, wsb_dims, cham_elevs, 
+                 chamber_operating_limits, wsb_elevs,
                  wsb_operating_limits):
         
         # Initialize parent class
-        super().__init__(lock_length=458, lock_width=55, 
-                         lock_head_sills=lock_head_sills, 
-                         cham_bottom_elevs=cham_bottom_elevs, 
-                         operating_limits=chamber_operating_limits)
+        super().__init__(
+            lock_length=458, lock_width=55, cham_elevs=cham_elevs, 
+            lock_head_sills=lock_head_sills, operating_limits=chamber_operating_limits)
 
         # Initialize water saving basin objects
         self.basins = {'LC': {}, 'MC': {}, 'UC': {}}
@@ -46,7 +45,8 @@ class NeoPanamaxLock(ThreeStepsLock):
             for basin in ['Top', 'Int', 'Bot']:
                 self.basins[cham][basin] = WaterSavingBasin(
                     length=wsb_dims['L'], width=wsb_dims['W'],
-                    z_bottom=wsb_bottom_elevs[cham][basin],
+                    z_bottom=wsb_elevs[cham][basin][0],
+                    z_top=wsb_elevs[cham][basin][1],
                     H_min=wsb_operating_limits[cham][basin][0],
                     H_max=wsb_operating_limits[cham][basin][1]
                 )

@@ -12,14 +12,15 @@ import utilities.hydrodynamics as hd
 # Define class
 class ThreeStepsLock:
 
-    def __init__(self, lock_length, lock_width, cham_bottom_elevs, 
+    def __init__(self, lock_length, lock_width, cham_elevs, 
                  lock_head_sills, operating_limits):
         # Initialize lock chamber objects
         self.chambers = {}
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham] = LockChamber(
                 length=lock_length, width=lock_width,
-                z_bottom=cham_bottom_elevs[cham],
+                z_bottom=cham_elevs[cham][0],
+                z_top=cham_elevs[cham][1],
                 H_min=operating_limits[cham][0],
                 H_max=operating_limits[cham][1],
                 S0=None, H0=None

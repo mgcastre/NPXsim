@@ -3,10 +3,11 @@
 
 class ControlVolume:
 
-    def __init__(self, length, width, z_bottom, 
+    def __init__(self, length, width, z_bottom, z_top,
                  H_min, H_max, H0=None, S0=None):
         self.length = length
         self.width = width
+        self.z_top = z_top
         self.z_bottom = z_bottom
         self.area = length*width
         self.H_min = H_min
@@ -74,8 +75,8 @@ class ControlVolume:
 
 class LockChamber(ControlVolume):
     
-    def __init__(self, length, width, z_bottom, H_min, H_max, H0=None, S0=None):
-        super().__init__(length, width, z_bottom, H_min, H_max, H0, S0)
+    def __init__(self, length, width, z_bottom, z_top, H_min, H_max, H0=None, S0=None):
+        super().__init__(length, width, z_bottom, z_top, H_min, H_max, H0, S0)
     
     def change_length(self, new_length):
         self.length = new_length
@@ -106,8 +107,8 @@ class LockChamber(ControlVolume):
 
 class WaterSavingBasin(ControlVolume):
 
-    def __init__(self, length, width, z_bottom, H_min, H_max):
-        super().__init__(length, width, z_bottom, H_min, H_max)
+    def __init__(self, length, width, z_bottom, z_top, H_min, H_max):
+        super().__init__(length, width, z_bottom, z_top, H_min, H_max)
     
     def drain_basin(self, H_final, ts):
         super()._drain(H_final=H_final, ts=ts)

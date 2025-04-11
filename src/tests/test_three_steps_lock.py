@@ -76,18 +76,16 @@ obs_water_levels = hf.extract_obs_water_levels(lock_operations, filling_time=10)
 
 # Create Agua Clara lock object
 
-## Define lock sills and bottom elevations
+## Define elevations and operating limits for each chamber
 lock_head_sills_ac = {'LH1': 6.40, 'LH2': -1.99, 'LH3': -10.35, 'LH4': -18.69}
-cham_bottom_ac = {'LC': -18.69, 'MC': -10.35, 'UC': -1.99}
-
-## Define lock operating limits
+cham_elevs_ac = {'LC': (-18.69, 10.88), 'MC': (-10.35, 19.78), 'UC': (-1.99, 28.70)}
 cham_op_limits = {'LC': (-0.39, 9.38), 'MC': (7.95, 18.28), 'UC': (16.31, 27.13)}
 
 ## Create NPX lock object
 AguaClara = ThreeStepsLock(
     lock_length = 430, # m
     lock_width = 55, # m
-    cham_bottom_elevs = cham_bottom_ac,
+    cham_elevs = cham_elevs_ac,
     lock_head_sills = lock_head_sills_ac,
     operating_limits = cham_op_limits,
 )
