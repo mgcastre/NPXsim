@@ -186,3 +186,48 @@ def extract_initial_salinities(salinity_df, initial_time):
             .squeeze().to_dict()
     return initial_salinities
 
+def parse_design_specifications(df, wsb_output=True):
+    """
+    Parses the design specifications for the locks and water saving basins.
+    The function accepts a dataframe that must contain the following columns:
+    - Location: Name of the lock chamber, basin or lock head
+    - Z_bottom: Bottom elevation of the lock chamber, basin or lock head
+    - Z_top: Top elevation of the lock chamber or basin
+    - H_min: Minimum operating level of the lock chamber or basin
+    - H_max: Maximum operating level of the lock chamber or basin
+    The function returns the following dictionaries:
+    - lock_head_sills: Dictionary with the lock head sill elevations
+    - chamber_parameters: Dictionary with the elevations (Z) and water level (H)
+                          operating limits for the lock chambers.
+    - wsb_parameters: Dictionary with the elevations (Z) and water level (H)
+                          operating limits for the water saving basins.
+    """
+    ## Reshape design specifications
+    df = df.set_index('Location')
+    ds_dict = df.to_dict(orient='index')
+    ## Get lock_head_sills
+    lock_heads = ['LH1', 'LH2', 'LH3', 'LH4']
+    lock_head_sills = {lh: ds_dict[lh]['Z_bottom'] for lh in lock_heads}
+    ## Get operating limits and elevations for locks and basins
+    cham_op_limits, cham_elevs = {}, {}
+    for cham in ['LC', 'MC', 'UC']:
+        cham_op_limits[cham] = (ds_dict[cham]['H_min'], ds_dict[cham]['H_max'])
+        cham_elevs[cham] = (ds_dict[cham]['Z_bottom'], ds_dict[cham]['Z_top'])
+    ## Get operating limits and elevations for water saving basins
+    wsb_op_limits, wsb_elevs = {}, {}
+    basins = ['Top', 'Int', 'Bot']
+    for cham in ['L', 'M', 'U']:
+        wsb_op_limits[cham+'C'] = {
+            x: (ds_dict[f'{cham}B_{x}']['H_min'], ds_dict[f'{cham}B_{x}']['H_max']) for x in basins
+        }
+        wsb_elevs[cham+'C'] = {
+            x: (ds_dict[f'{cham}B_{x}']['Z_bottom'], ds_dict[f'{cham}B_{x}']['Z_top']) for x in basins
+        }
+    ## Combine parameters into dictionaries
+    chamber_parameters = {'Z': cham_elevs, 'H': cham_op_limits}
+    wsb_parameters = {'Z': wsb_elevs, 'H': wsb_op_limits}
+    ## Return results
+    if wsb_output:
+        return lock_head_sills, chamber_parameters, wsb_parameters
+    else:
+        return lock_head_sills, chamber_parameters

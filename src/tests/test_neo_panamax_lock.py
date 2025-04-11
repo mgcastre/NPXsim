@@ -54,8 +54,8 @@ end = '2023-10-20 06:00:00'
 
 ## Load model input data and observations
 file_path = "./data/external/model_validation/"
-obs_salinities_avg = pd.read_feather("./data/mean_salinity_1min.ftr")
-obs_salinities_btm = pd.read_feather("./data/bottom_salinity_1min.ftr")
+obs_salinities_avg = pd.read_feather("./data/salinity_avg_1min.ftr")
+obs_salinities_btm = pd.read_feather("./data/salinity_btm_1min.ftr")
 lock_operations_all = pd.read_csv("./data/op_params_and_bcs.csv")
 
 ## Filter lock operations and calculate inital time
@@ -78,31 +78,16 @@ obs_water_levels = hf.extract_obs_water_levels(lock_operations, filling_time=10)
 
 # Create Agua Clara lock object
 
-## Define lock sills and chamber bottom elevations
-lock_head_sills_ac = {'LH1': 6.40, 'LH2': -1.99, 'LH3': -10.35, 'LH4': -18.69}
-chamber_bottom_ac = {'LC': -18.69, 'MC': -10.35, 'UC': -1.99}
+## Read design specifications and parse them
+ds_acll = pd.read_csv("./data/acll_design_specifications.csv", sep=';')
+lhs, cham_params, wsb_params = hf.parse_design_specifications(ds_acll)
 
-## Define water saving basin bottom elevations
-wsb_bottom_elevs = {'UC': {'Top': 18.94, 'Int': 17.31, 'Bot': 15.66},
-                    'MC': {'Top': 10.73, 'Int': 9.08, 'Bot': 7.42},
-                    'LC': {'Top': 2.40, 'Int': 0.69, 'Bot': -1.07}}
-
-## Define water level operating limits
-cham_op_limits = {'LC': (-0.39, 9.38), 'MC': (7.95, 18.28), 'UC': (16.31, 27.13)}
-wsb_op_limits = {
-    'UC': {'Top': (21.44, 25.35), 'Int': (19.81, 23.57), 'Bot': (18.16, 21.80)},
-    'MC': {'Top': (13.23, 16.42), 'Int': (11.58, 14.63), 'Bot': (9.92, 12.83)},
-    'LC': {'Top': (4.90, 7.50), 'Int': (3.19, 5.73), 'Bot': (1.43, 3.99)}
-}
-
-# Create NPX lock object
+## Create NPX lock object
 AguaClara = NeoPanamaxLock(
-    wsb_dims = {'L': 420, 'W': 65},
-    lock_head_sills = lock_head_sills_ac,
-    cham_bottom_elevs = chamber_bottom_ac,
-    chamber_operating_limits = cham_op_limits,
-    wsb_bottom_elevs = wsb_bottom_elevs,
-    wsb_operating_limits = wsb_op_limits
+    wsb_dims = {'L': 420, 'W': 65}, lock_head_sills = lhs, 
+    cham_elevs = cham_params['Z'], wsb_elevs = wsb_params['Z'],
+    chamber_operating_limits = cham_params['H'], 
+    wsb_operating_limits = wsb_params['H'],
 )
 
 # %%
