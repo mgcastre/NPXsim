@@ -362,7 +362,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             ## 1.2) Finish filling chamber to the level of the lake
             start_luc = self.chambers['UC'].get_current_level()
             wldiff = H_lake - start_luc # Difference in water level in meters
-            logger.debug(f'[{self.ts_to_datetime(time_stamp)}] - Difference in water level: {wldiff:0.2f} m')
+            logger.debug(f'[{self.ts_to_datetime(initial_time_stamp)}] - Difference in water level: {wldiff:0.2f} m')
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=initial_time_stamp)
             logger.info(f'[{self.ts_to_datetime(initial_time_stamp)}] - LH1 Equalization Finishes')
             super().record_freshwater_consumed(start_luc=start_luc, end_luc=H_lake, ts=initial_time_stamp)
