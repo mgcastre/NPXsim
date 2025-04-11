@@ -41,7 +41,6 @@ output_dir = "./outputs/figures/lock_model/"
 
 ## Define time period to test turnaround time (2)
 start = '2023-10-19 18:00:00'
-# start = '2023-10-19 22:00:00'
 end = '2023-10-20 06:00:00'
 
 ## Define time period to test long sequence of lockages (1)
@@ -84,7 +83,7 @@ lhs, cham_params, wsb_params = hf.parse_design_specifications(ds_acll)
 
 ## Create NPX lock object
 AguaClara = NeoPanamaxLock(
-    wsb_dims = {'L': 420, 'W': 65}, lock_head_sills = lhs, 
+    wsb_dims = {'L': 432, 'W': 65}, lock_head_sills = lhs, 
     cham_elevs = cham_params['Z'], wsb_elevs = wsb_params['Z'],
     chamber_operating_limits = cham_params['H'], 
     wsb_operating_limits = wsb_params['H'],
@@ -120,6 +119,7 @@ lock_times = lock_operations['TS_LockageStarts'].tolist()
 my_colors = ['darkorange', 'green', 'royalblue']
 
 ## Make plot
+end = sim_levels.index[-1]
 pf.plot_water_levels(sim_levels, lock_times, start, end, figsize=(11, 5),
                      colors=my_colors, linestyles=['-', '--', '-.', ':'],
                      return_fig=False)
