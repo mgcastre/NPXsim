@@ -122,8 +122,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         H1 = self.chambers[cham].get_current_level()
         H2 = self.basins[cham][basin].get_current_level()
         Hf = hd.calc_equalization_level(A1, A2, H1, H2)
-        logger.debug(f'{" "*24}Initial {cham} level = {H1:.2f} m')
-        logger.debug(f'{" "*24}Initial {cham[0]}B{basin} level = {H2:.2f} m')
+        logger.debug(f'{" "*24}{cham} initial level = {H1:.2f} m')
+        logger.debug(f'{" "*24}{cham[0]}B{basin} initial level = {H2:.2f} m')
         return Hf
     
     def check_reservoir_limits(self, Hf, location, time_stamp, basin=None, threshold=0.1):
@@ -142,7 +142,6 @@ class NeoPanamaxLock(ThreeStepsLock):
         """
         # 1) Convert time stamp to datetime if needed
         time_stamp = self.ts_to_datetime(time_stamp)
-        
         # 2) Get reservoir properties
         if basin is not None:
             reservoir = self.basins[location][basin]
@@ -151,34 +150,35 @@ class NeoPanamaxLock(ThreeStepsLock):
             reservoir = self.chambers[location]
         z_bottom = reservoir.z_bottom
         z_top = reservoir.z_top
-        
         # 3) Check if equalization level is above reservoir bottom
         if Hf < z_bottom:
-            logger.critical(f"[{time_stamp}] - Equalization level ({Hf:0.2f} m) "
-                           f"is below {location} bottom ({z_bottom:.2f} m)")
-            raise EmptyReservoirError(Hf, z_bottom, res_name=location)
-       
+            logger.critical(f"[{time_stamp}] - RESERVOIR IS EMPTY! - Equalization level "
+                            f"({Hf:0.2f} m) is below {location} bottom ({z_bottom:.2f} m)")
+            # raise EmptyReservoirError(Hf, z_bottom, res_name=location)
         # 4) Check if equalization level is below top of reservoir
         if Hf > z_top:
-            logger.critical(f"[{time_stamp}] - Equalization level ({Hf:0.2f} m) "
-                           f"is above {location} top ({z_top:.2f} m)")
-            raise ReservoirOverflowError(Hf, z_top, res_name=location)
+            logger.critical(f"[{time_stamp}] - RESERVOIR OVERFLOWED! - Equalization level "
+                            f"({Hf:0.2f} m) is above {location} top ({z_top:.2f} m)")
+            # raise ReservoirOverflowError(Hf, z_top, res_name=location)
         # 5) Check if equalization level is within operating limits
         H_min, H_max = reservoir.get_operating_limits()
         
         # 6) Check operating limits and log warnings/errors
         if (Hf < H_min) or (H_max < Hf):
-            logger.error(f"[{time_stamp}] - Equalization level {Hf:.2f} m is outside "
-                         f"the safe operating limits of {location} ({H_min:.2f} to {H_max:.2f} m)")
+            logger.error(f"[{time_stamp}] - Equalization level {Hf:.2f} m is outside the safe"
+                         f" operating limits of {location} ({H_min:.2f} to {H_max:.2f} m)")
         elif round(Hf-H_min, 2) <= threshold:
             logger.warning(f"[{time_stamp}] - Equalization level {Hf:.2f} m is within "
                            f"{threshold} m of minimum operating limit of {location} ({H_min:.2f} m)")
         elif round(H_max-Hf, 2) <= threshold:
             logger.warning(f"[{time_stamp}] - Equalization level {Hf:.2f} m is within "
                            f"{threshold} m of maximum operating limit of {location} ({H_max:.2f} m)")
+        else:
+            logger.debug(f"{' '*24}{location} final level = {Hf:.2f} m")
 
     def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} started draining to {basin} basin')
             self.basins[chamber][basin].record_current_status(ts=ts)
             Hf = self.equalization_level(cham=chamber, basin=basin)
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
@@ -186,11 +186,11 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
             self.basins[chamber][basin].fill_basin(H_final=Hf, S_lift=S_lift, ts=ts)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished draining to {basin} basin')
-            logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
             self.check_reservoir_limits(Hf, chamber, ts, basin)
     
     def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} started filling from {basin} basin')
             self.basins[chamber][basin].record_current_status(ts=ts)
             Hf = self.equalization_level(cham=chamber, basin=basin)
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
@@ -198,7 +198,6 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
             self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished filling from {basin} basin')
-            logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
             self.check_reservoir_limits(Hf, chamber, ts, basin)
     
     def equalize_and_cross(self, lock_head, direction, wsb_use, init_time, teq):
@@ -219,7 +218,6 @@ class NeoPanamaxLock(ThreeStepsLock):
         time_stamp = init_time + teq # Time stamp for the end of the equalization
         Hf = super().equalize_chambers(upper_cham, lower_cham, ts=time_stamp)
         logger.info(f'[{self.ts_to_datetime(time_stamp)}] - {lock_head} Equalization Finished')
-        logger.debug(f'{" "*24}Final level = {Hf:.2f} m')
         # 3. Check if equalization level is within operating limits
         for chamber in [upper_cham, lower_cham]:
             self.check_reservoir_limits(Hf, chamber, time_stamp)
@@ -283,6 +281,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)
         # Print log messages
         logger.info(f'[{lockage_start_dt}] - LOCKAGE {str(self.Num)} ({direction.upper()}) STARTS')
+        logger.info(f'{" "*24}Use of water saving basins: {wsb_use}')
         # Perform transit based on the direction
         if direction == 'up':
             self.uplockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
@@ -449,5 +448,3 @@ class NeoPanamaxLock(ThreeStepsLock):
     def get_salinities(self, pivot=True, interpolate=True):
         df = self.get_results_df('Salinity', pivot=pivot, interpolate=interpolate)
         return df
-
-# TODO: Check why error messages of water outside of safe operating limits do not make sense.
