@@ -154,12 +154,12 @@ class NeoPanamaxLock(ThreeStepsLock):
         if Hf < z_bottom:
             logger.critical(f"[{time_stamp}] - RESERVOIR IS EMPTY! - Equalization level "
                             f"({Hf:0.2f} m) is below {location} bottom ({z_bottom:.2f} m)")
-            # raise EmptyReservoirError(Hf, z_bottom, res_name=location)
+            raise EmptyReservoirError(Hf, z_bottom, res_name=location)
         # 4) Check if equalization level is below top of reservoir
         if Hf > z_top:
             logger.critical(f"[{time_stamp}] - RESERVOIR OVERFLOWED! - Equalization level "
                             f"({Hf:0.2f} m) is above {location} top ({z_top:.2f} m)")
-            # raise ReservoirOverflowError(Hf, z_top, res_name=location)
+            raise ReservoirOverflowError(Hf, z_top, res_name=location)
         # 5) Check if equalization level is within operating limits
         H_min, H_max = reservoir.get_operating_limits()
         
