@@ -212,9 +212,9 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.chambers[upper_cham].record_current_status(ts=init_time)
         logger.info(f'[{self.ts_to_datetime(init_time)}] - {lock_head} Equalization Started')
         # 1. Drain and fill chambers with water saving basins
-        if wsb_use[upper_cham]:
+        if sum(wsb_use[upper_cham].values()) > 0:
             self.drain_chamber_to_wsb(upper_cham, ts=init_time, teq=teq)
-        if wsb_use[lower_cham]:
+        if sum(wsb_use[lower_cham].values()) > 0:
             self.fill_chamber_from_wsb(lower_cham, ts=init_time, teq=teq)
         # 2. Finish equalization between chambers
         H_init_lower = self.chambers[lower_cham].get_current_level()
@@ -284,7 +284,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.eqTime = operation_params['eqTime']
         # Extract lockage direction and wsb use
         direction = operation_params['Direction']
-        wsb_use = operation_params['WSBUse_Simple']
+        wsb_use = operation_params['WSBUse_Detailed']
         # Calculate initial lockage time stamp in minutes
         lockage_start_dt = operation_params['TS_LockageStarts']
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)
@@ -313,7 +313,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             tdrain = 12 # Minutes to drain chamber (assumed)
             self.chambers['LC'].record_current_status(ts=initial_time_stamp-tdrain)
             logger.info(f'[{self.ts_to_datetime(initial_time_stamp-tdrain)}] - LH4 Equalization Starts')
-            if wsb_use['LC']:
+            if sum(wsb_use['LC'].values()) > 0:
                 time0 = initial_time_stamp - tdrain # minutes
                 self.drain_chamber_to_wsb(chamber='LC', ts=time0, teq=tdrain)
             self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=initial_time_stamp)
@@ -338,7 +338,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers['UC'].record_current_status(ts=time_stamp)
             logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LH1 Equalization Starts')
             ## 5.1) Fill water from WSB (if needed)
-            if wsb_use['UC']:
+            if sum(wsb_use['UC'].values()) > 0:
                 self.fill_chamber_from_wsb(chamber='UC', ts=time_stamp, teq=self.eqTime['UC'])
             ## 5.2) Finish filling chamber to the level of the lake
             start_luc = self.chambers['UC'].get_current_level()
@@ -367,7 +367,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers['UC'].record_current_status(ts=initial_time_stamp-tfill)
             logger.info(f'[{self.ts_to_datetime(initial_time_stamp-tfill)}] - LH1 Equalization Starts')
             ## 1.1) Fill water from WSB (if needed)
-            if wsb_use['UC']:
+            if sum(wsb_use['UC'].values()) > 0:
                 time0 = initial_time_stamp - tfill # minutes
                 self.fill_chamber_from_wsb(chamber='UC', ts=time0, teq=tfill)
             ## 1.2) Finish filling chamber to the level of the lake
@@ -400,7 +400,7 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers['LC'].record_current_status(ts=time_stamp)
             logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LH4 Equalization Starts')
             ## 5.1) Drain water from chamber to WSB (if needed)
-            if wsb_use['LC']:
+            if sum(wsb_use['LC'].values()) > 0:
                 self.drain_chamber_to_wsb(chamber='LC', ts=time_stamp, teq=self.eqTime['LC'])
             ## 5.2) Finish draining chamber to the level of the ocean
             time_stamp = time_stamp + self.eqTime['LC'] # total minutes to drain chamber
