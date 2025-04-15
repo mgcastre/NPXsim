@@ -250,9 +250,12 @@ class NeoPanamaxLock(ThreeStepsLock):
             except IndexError:
                 break
             if this_transit['Direction'] != next_transit['Direction']:
-                ts = self.calc_elapsed_minutes(next_transit['TS_LocksReady']) - 30
-                logger.info(f'[{self.ts_to_datetime(ts)}] - TURNAROUND STARTS')
-                self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
+                if next_transit['Direction'] == 'dummy':
+                    pass
+                else:
+                    ts = self.calc_elapsed_minutes(next_transit['TS_LocksReady']) - 30
+                    logger.info(f'[{self.ts_to_datetime(ts)}] - TURNAROUND STARTS')
+                    self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
         logger.info('NORMAL TERMINATION OF LOCK OPERATIONS')
     
     def transit(self, operation_params, boundary_conditions):
@@ -287,8 +290,10 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.uplockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
         elif direction == 'down':
             self.downlockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
+        elif direction == 'dummy':
+            self.downlockage(initial_time, wsb_use, S_ocean, H_ocean, S_lake, H_lake)
         else:
-            raise ValueError("Direction must be either 'up' or 'down'.")
+            raise ValueError("Direction must be either 'up', 'down' or 'dummy'.")
         # Log freshwater consumption and salt load per lockage
         water_cons = self.freshwater_consumed["ConsMMC"][-1]
         salt_load = (self.salt_mass_load["DC"][-1], self.salt_mass_load["VD"][-1])
@@ -347,7 +352,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         V_ex_lake = super().exchange_with_boundary(S_lake=S_lake)
         self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake, ts=time_stamp)
         super().calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='up', ts=time_stamp)
-        logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LOCKAGE {str(self.Num)} (UP) FINISHES')
+        logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LOCKAGE {str(self.Num)} FINISHES')
 
     def downlockage(self, initial_time_stamp, wsb_use, S_ocean, H_ocean, S_lake, H_lake):
         ## 1) Lift upper chamber to level of the lake (LH1)
@@ -400,7 +405,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         time_stamp = time_stamp + t_transit # minutes
         V_ex_ocean = super().exchange_with_boundary(S_ocean=S_ocean) 
         self.chambers['LC'].ship_leaves(V_rhs=V_ex_ocean, S_rhs=S_ocean, ts=time_stamp)
-        logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LOCKAGE {str(self.Num)} (DOWN) FINISHES')
+        logger.info(f'[{self.ts_to_datetime(time_stamp)}] - LOCKAGE {str(self.Num)} FINISHES')
 
     def turnaround(self, boundary_conditions, new_direction, tinit):
         # Record current conditions before initiating turnaround

@@ -56,7 +56,7 @@ def prepare_operation_parameters(lock_operations_df):
     the lock model (run transits). The function acceps a dataframe that
     must contain the following columns:
     - Num: Operation number
-    - Direction: Lockage direction (Uplockage or Downlockage)
+    - Direction: Lockage direction (Uplockage, Downlockage or Dummy)
     - transitTimeLH1: Transit time for lock head 1
     - transitTimeLH2: Transit time for lock head 2
     - transitTimeLH3: Transit time for lock head 3
@@ -96,8 +96,8 @@ def prepare_operation_parameters(lock_operations_df):
     operation_params_df['Total_Lockage_Time'] = \
         operation_params_df[transit_time_cols + eq_time_cols].sum(axis=1)
     ## Rename vessel direction in lock operations
-    operation_params_df['Direction'] = operation_params_df['Direction'] \
-        .replace({'Downlockage': 'down', 'Uplockage': 'up'})
+    operation_params_df['Direction'] = operation_params_df['Direction'].str.lower() \
+        .replace({'downlockage': 'down', 'uplockage': 'up'})
     ## Convert operation parameters to dictionary
     operation_params_raw = operation_params_df.to_dict('records')
     ## Transform dictionary into correct format
