@@ -40,12 +40,12 @@ output_dir = "./outputs/figures/lock_model/"
 # end = '2023-10-19 12:00:00'
 
 ## Define time period to test turnaround time (2)
-# start = '2023-10-19 18:00:00'
-# end = '2023-10-20 06:00:00'
+start = '2023-10-19 18:00:00'
+end = '2023-10-20 06:00:00'
 
 ## Define time period to test long sequence of lockages (1)
-start = '2023-10-31 00:00:00'
-end = '2023-11-01 20:00:00'
+# start = '2023-10-31 00:00:00'
+# end = '2023-11-01 20:00:00'
 
 ## Define time period to test long sequence of lockages (2)
 # start = '2023-10-18 23:00:00'
@@ -83,7 +83,7 @@ lhs, cham_params, wsb_params = hf.parse_design_specifications(ds_acll)
 
 ## Create NPX lock object
 AguaClara = NeoPanamaxLock(
-    wsb_dims = {'L': 432, 'W': 65}, lock_head_sills = lhs, 
+    wsb_dims = {'L': 435, 'W': 65}, lock_head_sills = lhs, 
     cham_elevs = cham_params['Z'], wsb_elevs = wsb_params['Z'],
     chamber_operating_limits = cham_params['H'], 
     wsb_operating_limits = wsb_params['H'],
@@ -153,5 +153,3 @@ for res in ['Chambers', 'Basins']:
 # fig_name = 'sim_vs_obs_chamber_salinity.png'
 # fig.savefig(output_dir+fig_name, bbox_inches='tight', dpi=300)
 # %%
-
-# TODO: Figure out what happened with the dummy lockage (Num 7471 in Agua Clara).
