@@ -490,6 +490,8 @@ class NeoPanamaxLock(ThreeStepsLock):
                 list_of_dfs.append(df)
         # Concatenate all dataframes
         df = pd.concat(list_of_dfs).reset_index(drop=True)
+        # Create numerical variable column
+        df[variable] = pd.to_numeric(df[variable], errors='coerce')
         # Calculate Date_Time timestamp column and set as index
         df['TimeTrans'] = pd.to_timedelta(df['Time'], unit='min')
         df['Date_Time'] = pd.to_datetime(self.operation_start_dt) + df['TimeTrans']
