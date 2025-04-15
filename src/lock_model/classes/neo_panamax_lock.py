@@ -420,8 +420,61 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers['UC'].record_current_status(ts=tinit)
         elif new_direction == 'down':
             self.chambers['LC'].record_current_status(ts=tinit)
-        # Perform turnaround operation
-        super().turnaround(boundary_conditions, new_direction, tinit)
+        # Extract boundary conditions
+        H_ocean = boundary_conditions['H_ocean']
+        S_lake = boundary_conditions['S_lake']
+        H_lake = boundary_conditions['H_lake']
+        # Add logger information about current water levels
+        for cham in ['LC', 'MC', 'UC']:
+            H_current = self.chambers[cham].get_current_level()
+            logger.debug(f'{" "*24}{cham} initial level = {H_current:.2f} m')
+        # Add logger information about boundary conditions
+        logger.debug(f'{" "*24}H_ocean = {H_ocean:.2f} m')
+        logger.debug(f'{" "*24}H_lake = {H_lake:.2f} m')
+        # Calculate lock operational levels
+        op_levels = self.calc_cham_operational_levels(H_lake, H_ocean)
+        # A) From downlockage to uplockage:
+        if new_direction == 'up':
+            ## 0. Drain LC to the level of the ocean
+            if self.chambers['LC'].get_current_level() > H_ocean:
+                self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=tinit+5)
+                logger.debug(f'[{self.ts_to_datetime(tinit+5)}] - LC drained to the level of the ocean')
+            ## 1. Fill UC to the level of the Lake
+            ts = tinit + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - UC filled to the level of the lake')
+            ## 2. Drain UC and fill MC to the top operating level of MC
+            ts = ts + 10 # minutes
+            Hf_mc = op_levels['MC'][1]
+            S_uc = self.chambers['UC'].get_current_salinity()
+            self.chambers['UC'].drain_chamber(H_final=Hf_mc, ts=ts)
+            self.chambers['MC'].fill_chamber(H_final=Hf_mc, S_lift=S_uc, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - UC drained to the top operating level of MC ({Hf_mc:.2f} m)')
+            ## 3. Fill UC again to the level of the ocean
+            ts = ts + 10 # minutes
+            self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - UC filled to the level of the lake (again)')
+        # B) From uplockage to downlockage:
+        if new_direction == 'down':
+            ## 4. Fill UC to the level of the lake
+            if self.chambers['UC'].get_current_level() < H_lake:
+                self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=tinit+5)
+                logger.debug(f'[{self.ts_to_datetime(tinit+5)}] - UC filled to the level of the lake')
+            ## 1. Drain LC to the level of the ocean
+            ts = tinit + 10 # minutes
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - LC drained to the level of the ocean')
+            ## 2. Drain MC and fill LC to the lowest operational level of MC
+            ts = ts + 10 # minutes
+            Hf_mc = op_levels['MC'][0]
+            S_mc = self.chambers['MC'].get_current_salinity()
+            self.chambers['MC'].drain_chamber(H_final=Hf_mc, ts=ts)
+            self.chambers['LC'].fill_chamber(H_final=Hf_mc, S_lift=S_mc, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - MC drained to its lowest operational level ({Hf_mc:.2f} m)')
+            ## 3. Drain LC again to the level of the ocean
+            ts = ts + 10 # minutes
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, ts=ts)
+            logger.debug(f'[{self.ts_to_datetime(ts)}] - LC drained to the level of the ocean (again)')
 
     def get_results_df(self, variable, pivot=True, interpolate=True):
         list_of_dfs = []
