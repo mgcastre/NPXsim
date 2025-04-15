@@ -186,7 +186,10 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
             self.basins[chamber][basin].fill_basin(H_final=Hf, S_lift=S_lift, ts=ts)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished draining to {basin} basin')
-            self.check_reservoir_limits(Hf, chamber, ts, basin)
+            try:
+                self.check_reservoir_limits(Hf, chamber, ts, basin)
+            except ReservoirOverflowError:
+                continue
     
     def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
@@ -198,7 +201,10 @@ class NeoPanamaxLock(ThreeStepsLock):
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
             self.chambers[chamber].fill_chamber(H_final=Hf, ts=ts, S_lift=S_lift)
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} finished filling from {basin} basin')
-            self.check_reservoir_limits(Hf, chamber, ts, basin)
+            try:
+                self.check_reservoir_limits(Hf, chamber, ts, basin)
+            except ReservoirOverflowError:
+                continue
     
     def equalize_and_cross(self, lock_head, direction, wsb_use, init_time, teq):
         lower_cham, upper_cham = self.lock_heads['Chambers'][lock_head]
