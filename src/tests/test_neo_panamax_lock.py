@@ -155,5 +155,5 @@ for res in ['Chambers', 'Basins']:
 # %%
 
 # Save simulation results (not interpolated)
-AguaClara.get_water_levels(pivot=True).to_csv("./outputs/simulated_water_levels.csv", index=False)
-AguaClara.get_salinities(pivot=True).to_csv("./outputs/simulated_salinities.csv", index=False)
+AguaClara.get_water_levels(pivot=True).to_csv("./outputs/simulated_water_levels.csv")
+AguaClara.get_salinities(pivot=True).to_csv("./outputs/simulated_salinities.csv")
