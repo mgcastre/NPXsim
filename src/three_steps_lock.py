@@ -5,9 +5,9 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from classes.lock_elements import *
-from classes.custom_exceptions import *
 import utilities.hydrodynamics as hd
+from lock_elements import *
+from custom_exceptions import *
 
 # Define class
 class ThreeStepsLock:

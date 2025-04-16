@@ -6,10 +6,10 @@ import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from classes.lock_elements import *
-from classes.three_steps_lock import *
-from classes.custom_exceptions import *
 import utilities.hydrodynamics as hd
+from lock_elements import *
+from three_steps_lock import *
+from custom_exceptions import *
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
