@@ -247,22 +247,25 @@ class NeoPanamaxLock(ThreeStepsLock):
         return new_dt_object.strftime("%Y-%m-%d %H:%M:%S")
     
     def operate(self, operation_params, boundary_conditions):
-        logger.info('LOCK OPERATIONS START')
+        """
+        The bigger picture.
+        """
         for i in range(len(operation_params)):
-            this_transit = operation_params[i]
-            self.transit(this_transit, boundary_conditions[i])
-            try:
-                next_transit = operation_params[i+1]
-            except IndexError:
-                break
-            if this_transit['Direction'] != next_transit['Direction']:
-                if next_transit['Direction'] == 'dummy':
-                    pass
-                else:
-                    ts = self.calc_elapsed_minutes(next_transit['TS_LocksReady']) - 30
-                    logger.info(f'[{self.ts_to_datetime(ts)}] - TURNAROUND STARTS')
-                    self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=ts)
-        logger.info('NORMAL TERMINATION OF LOCK OPERATIONS')
+            current_operation, current_bcs = operation_params[i], boundary_conditions[i]
+            current_direction = current_operation['direction']
+
+            self.transit(operation_params=current_operation, boundary_conditions=current_bcs)
+
+            if i != len(operation_params):
+                next_operation, next_bcs = operation_params[i + 1], boundary_conditions[i + 1]
+
+                dt = next_operation['ts_locks_ready']
+                next_direction = next_operation['direction']
+
+                if current_direction != next_direction:
+                    if next_direction != 'dummy':
+                        elapsed = self.calc_elapsed_minutes(dt_string=dt) - 30
+                        self.turnaround(boundary_conditions=next_bcs, new_direction=next_direction, t_init=elapsed)
     
     def transit(self, operation_params, boundary_conditions):
         # Extract lockage number
