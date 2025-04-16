@@ -4,3 +4,5 @@ outputs/*
 scripts/*
 **/__pycache__/
 *.log
+.vscode
+.idea
