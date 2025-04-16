@@ -20,8 +20,9 @@ import utilities.helper_functions as hf
 import utilities.plotting_functions as pf
 from classes.neo_panamax_lock import NeoPanamaxLock
 
-# Define output figure directory
-output_dir = "./outputs/figures/lock_model/"
+# Define input and output dir
+output_dir = "./outputs/"
+input_dir = "./data/processed/"
 
 # %%
 
@@ -52,10 +53,9 @@ end = '2023-10-20 06:00:00'
 # end = '2023-10-19 21:00:00'
 
 ## Load model input data and observations
-file_path = "./data/external/model_validation/"
-obs_salinities_avg = pd.read_feather("./data/salinity_avg_1min.ftr")
-obs_salinities_btm = pd.read_feather("./data/salinity_btm_1min.ftr")
-lock_operations_all = pd.read_csv("./data/op_params_and_bcs.csv")
+obs_salinities_avg = pd.read_feather(input_dir+"salinity_avg_1min.ftr")
+obs_salinities_btm = pd.read_feather(input_dir+"salinity_btm_1min.ftr")
+lock_operations_all = pd.read_csv(input_dir+"op_params_and_bcs.csv")
 
 ## Filter lock operations and calculate inital time
 lock_operations = hf.filter_date_range(lock_operations_all, start, end, date_col='TS_LockageStarts')
@@ -78,7 +78,7 @@ obs_water_levels = hf.extract_obs_water_levels(lock_operations, filling_time=10)
 # Create Agua Clara lock object
 
 ## Read design specifications and parse them
-ds_acll = pd.read_csv("./data/acll_design_specifications.csv", sep=';')
+ds_acll = pd.read_csv("./data/external/acll_design_specifications.csv", sep=';')
 lhs, cham_params, wsb_params = hf.parse_design_specifications(ds_acll)
 
 ## Create NPX lock object
