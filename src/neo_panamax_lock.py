@@ -74,21 +74,27 @@ class NeoPanamaxLock(ThreeStepsLock):
         return {**cham_op_levels, **wsb_op_levels}
     
     def calc_initial_levels(self, H_lake, H_ocean, direction):
-        initial_levels = {}
-        operational_levels = self.calc_operational_levels(H_lake, H_ocean)
         # For uplockage, the lower chamber is at the level of the ocean (low level)
         # and the rest of the chambers are at their higher operational levels.
         # For downlockage, the upper chamber is at the level of the lake (high level)
         # and the rest of the chambers are at their lower operational levels.
         # The WSBs start at the opposite level of the related chamber.
+        operational_levels = self.calc_operational_levels(H_lake, H_ocean)
+        
         levels_dict = {'up': {'LC': 0, 'MC': 1, 'UC': 1}, 
                        'down': {'LC': 0, 'MC': 0, 'UC': 1}}
+        
+        initial_levels = {}
+
         for cham, c_level in levels_dict[direction].items():
             initial_levels[cham] = operational_levels[cham][c_level]
+            
             b_level = 1 - c_level # Level of WSB is opposite of related chamber.
+            
             for basin in ['Top', 'Int', 'Bot']:
                 my_key = f'{cham[0]}B{basin}'
                 initial_levels[my_key] = operational_levels[my_key][b_level]
+        
         return initial_levels
     
     def set_initial_conditions(self, boundary_conditions, salinities, 
@@ -142,6 +148,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         """
         # 1) Convert time stamp to datetime if needed
         time_stamp = self.ts_to_datetime(time_stamp)
+        
         # 2) Get reservoir properties
         if basin is not None:
             reservoir = self.basins[location][basin]
@@ -150,16 +157,19 @@ class NeoPanamaxLock(ThreeStepsLock):
             reservoir = self.chambers[location]
         z_bottom = reservoir.z_bottom
         z_top = reservoir.z_top
+        
         # 3) Check if equalization level is above reservoir bottom
         if Hf < z_bottom:
             logger.critical(f"[{time_stamp}] - RESERVOIR IS EMPTY! - Equalization level "
                             f"({Hf:0.2f} m) is below {location} bottom ({z_bottom:.2f} m)")
             raise EmptyReservoirError(Hf, z_bottom, res_name=location)
+        
         # 4) Check if equalization level is below top of reservoir
         if Hf > z_top:
             logger.critical(f"[{time_stamp}] - RESERVOIR OVERFLOWED! - Equalization level "
                             f"({Hf:0.2f} m) is above {location} top ({z_top:.2f} m)")
             raise ReservoirOverflowError(Hf, z_top, res_name=location)
+        
         # 5) Check if equalization level is within operating limits
         H_min, H_max = reservoir.get_operating_limits()
         
