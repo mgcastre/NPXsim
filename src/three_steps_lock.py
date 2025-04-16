@@ -360,7 +360,7 @@ class ThreeStepsLock:
             if self.chambers['UC'].get_current_level() < H_lake:
                 self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, ts=ts)
     
-    def get_salt_load(self, Units='ton', Dictionary=True):
+    def get_salt_load(self, units='ton', dictionary=True):
         """
         Returns the salt mass load etering the lake from the upper chamber.
         By default it returns a dictionary with the keys 'DC', 'VD', and 'Total'.
@@ -370,11 +370,11 @@ class ThreeStepsLock:
         """	
         sm_dc = np.array(self.salt_mass_load['DC'])
         sm_vd = np.array(self.salt_mass_load['VD'])
-        if Units == 'ton':
+        if units == 'ton':
             sm_dc = sm_dc/1000
             sm_vd = sm_vd/1000
         m_total = sm_dc + sm_vd
-        if Dictionary:
+        if dictionary:
             return {'DC': sm_dc, 'VD': sm_vd, 'Total': m_total}
         else:
             return sm_dc, sm_vd, m_total
@@ -395,7 +395,7 @@ class ThreeStepsLock:
         results = pd.concat(list_of_results)
         return results
 
-    def get_results(self, variable, dt_index, ffill):
+    def get_results_df(self, variable, dt_index, ffill):
         """
         Returns a dataframe with the results of a specific variable of 
         the lock model at different time steps sepecified by the user.
@@ -424,8 +424,8 @@ class ThreeStepsLock:
         """
         Returns a dataframe of the salinity of each chamber in the lock model.
         """
-        df = self.get_results(variable='Salinity', 
-                              dt_index=dt_index, ffill=ffill)
+        df = self.get_results_df(variable='Salinity', 
+                                 dt_index=dt_index, ffill=ffill)
         return df
 
     
@@ -433,7 +433,7 @@ class ThreeStepsLock:
         """
         Returns a dtaframe of the water level of each chamber in the lock model.
         """
-        df = self.get_results(variable='Water_Level', 
-                              dt_index=dt_index, ffill=ffill)
+        df = self.get_results_df(variable='Water_Level', 
+                                 dt_index=dt_index, ffill=ffill)
         return df
 
