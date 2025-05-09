@@ -1,8 +1,9 @@
-# Helper functions for Panama Canal's lock model
+# Input preparation functions for NPX lock model
 # M. G. Castrellon | 11 February 2024
 
-# Load Libraries
+# Load libraries
 import pandas as pd
+from src.model.data_classes import *
 
 # Define functions
 
@@ -195,39 +196,61 @@ def parse_design_specifications(df, wsb_output=True):
     - Z_top: Top elevation of the lock chamber or basin
     - H_min: Minimum operating level of the lock chamber or basin
     - H_max: Maximum operating level of the lock chamber or basin
-    The function returns the following dictionaries:
-    - lock_head_sills: Dictionary with the lock head sill elevations
-    - chamber_parameters: Dictionary with the elevations (Z) and water level (H)
-                          operating limits for the lock chambers.
-    - wsb_parameters: Dictionary with the elevations (Z) and water level (H)
-                          operating limits for the water saving basins.
+    - Length: Length of the lock chamber or basin
+    - Width: Width of the lock chamber or basin
+    The function returns an instance of a LockDesignSpecifications object.
     """
+
     ## Reshape design specifications
     df = df.set_index('Location')
     ds_dict = df.to_dict(orient='index')
+
     ## Get lock_head_sills
     lock_heads = ['LH1', 'LH2', 'LH3', 'LH4']
-    lock_head_sills = {lh: ds_dict[lh]['Z_bottom'] for lh in lock_heads}
+    z_lock_head_sills = {lh: ds_dict[lh]['Z_bottom'] for lh in lock_heads}
+
+    ## Get chamber dimensions (assume constant)
+    chamber_dimensions = {'L': ds_dict['MC']['Length'], 'W': ds_dict['MC']['Width']}
+
     ## Get operating limits and elevations for locks and basins
-    cham_op_limits, cham_elevs = {}, {}
+    chamber_operating_limits, chamber_z_elevations = {}, {}
     for cham in ['LC', 'MC', 'UC']:
-        cham_op_limits[cham] = (ds_dict[cham]['H_min'], ds_dict[cham]['H_max'])
-        cham_elevs[cham] = (ds_dict[cham]['Z_bottom'], ds_dict[cham]['Z_top'])
-    ## Get operating limits and elevations for water saving basins
-    wsb_op_limits, wsb_elevs = {}, {}
-    basins = ['Top', 'Int', 'Bot']
-    for cham in ['L', 'M', 'U']:
-        wsb_op_limits[cham+'C'] = {
-            x: (ds_dict[f'{cham}B_{x}']['H_min'], ds_dict[f'{cham}B_{x}']['H_max']) for x in basins
-        }
-        wsb_elevs[cham+'C'] = {
-            x: (ds_dict[f'{cham}B_{x}']['Z_bottom'], ds_dict[f'{cham}B_{x}']['Z_top']) for x in basins
-        }
-    ## Combine parameters into dictionaries
-    chamber_parameters = {'Z': cham_elevs, 'H': cham_op_limits}
-    wsb_parameters = {'Z': wsb_elevs, 'H': wsb_op_limits}
-    ## Return results
+        chamber_operating_limits[cham] = (ds_dict[cham]['H_min'], ds_dict[cham]['H_max'])
+        chamber_z_elevations[cham] = (ds_dict[cham]['Z_bottom'], ds_dict[cham]['Z_top'])
+
     if wsb_output:
-        return lock_head_sills, chamber_parameters, wsb_parameters
+        ## Get chamber dimensions (assume constant)
+        wsb_dimensions = {'L': ds_dict['MB_Top']['Length'], 'W': ds_dict['MB_Top']['Width']}
+
+        ## Get operating limits and elevations for water saving basins
+        wsb_operating_limits, wsb_z_elevations = {}, {}
+        basins = ['Top', 'Int', 'Bot']
+        for cham in ['L', 'M', 'U']:
+            wsb_operating_limits[cham+'C'] = {
+                x: (ds_dict[f'{cham}B_{x}']['H_min'], ds_dict[f'{cham}B_{x}']['H_max']) for x in basins
+            }
+            wsb_z_elevations[cham+'C'] = {
+                x: (ds_dict[f'{cham}B_{x}']['Z_bottom'], ds_dict[f'{cham}B_{x}']['Z_top']) for x in basins
+            }
+
+        design_specs_dict = {
+            'z_lock_head_sills': z_lock_head_sills,
+            'chamber_dimensions': chamber_dimensions,
+            'chamber_z_elevations': chamber_z_elevations,
+            'chamber_operating_limits': chamber_operating_limits,
+            'wsb_dimensions': wsb_dimensions,
+            'wsb_z_elevations': wsb_z_elevations,
+            'wsb_operating_limits': wsb_operating_limits,
+        }
+
     else:
-        return lock_head_sills, chamber_parameters
+        design_specs_dict = {
+            'z_lock_head_sills': z_lock_head_sills,
+            'chamber_dimensions': chamber_dimensions,
+            'chamber_z_elevations': chamber_z_elevations,
+            'chamber_operating_limits': chamber_operating_limits,
+        }
+
+
+    return LockDesignSpecifications(**design_specs_dict)
+
