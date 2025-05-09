@@ -14,6 +14,7 @@ class ThreeStepsLock:
 
     def __init__(self, lock_length, lock_width, cham_elevs, 
                  lock_head_sills, operating_limits):
+
         # Initialize lock chamber objects
         self.chambers = {}
         for cham in ['LC', 'MC', 'UC']:
@@ -25,6 +26,7 @@ class ThreeStepsLock:
                 H_max=operating_limits[cham][1],
                 S0=None, H0=None
             )
+
         # Create attributes for lock heads
         self.lock_heads = {'Z': lock_head_sills}
         self.lock_heads['Chambers'] = {
@@ -33,6 +35,7 @@ class ThreeStepsLock:
             'LH3': ['LC', 'MC'], 
             'LH4': ['LC']
         }
+
         # Initialize dict to store salt mass load to the lake
         self.salt_mass_load = {'TS': [], 'DC': [], 'VD': []}
         # Initialize dict to store freshwater consumed per lockage
@@ -75,21 +78,22 @@ class ThreeStepsLock:
         return init_levels
     
     def set_initial_conditions(self, boundary_conditions, salinities, 
-                               direction, operation_start_dt, 
-                               water_temperature=28):
+                               direction, water_temperature=28):
+
         # Calculate initial operational water levels
         H_lake = boundary_conditions['H_lake']
         H_ocean = boundary_conditions['H_ocean']
         init_levels = self.calc_initial_levels(H_lake, H_ocean, direction)
+
         # Add initial conditions to the lock chambers
         for cham in ['LC', 'MC', 'UC']:
             self.chambers[cham].add_initial_conditions(
                 H0=init_levels[cham], S0=salinities[cham]
             )
+
         # Pass the temperature to the class attribute
         self.T = water_temperature
-        # Add master initial operation start time
-        self.operation_start_dt = operation_start_dt
+
     
     def extract_properties(self, cham):
         W = self.chambers[cham].width
@@ -225,16 +229,27 @@ class ThreeStepsLock:
         return elapsed_minutes
     
     def operate(self, operation_params, boundary_conditions):
+        """
+        Main function that handles the operation of the locks.
+        """
+        self.operation_start_dt = operation_params[0]['ts_locks_ready']
+
         for i in range(len(operation_params)):
-            this_transit = operation_params[i]
-            self.transit(this_transit, boundary_conditions[i])
-            try:
-                next_transit = operation_params[i+1]
-            except IndexError:
-                break
-            if this_transit['Direction'] != next_transit['Direction']:
-                ts = self.minutes_since_operation_started(next_transit['TS_LocksReady']) - 30
-                self.turnaround(boundary_conditions[i+1], next_transit['Direction'], t_init=ts)
+            current_operation, current_bcs = operation_params[i], boundary_conditions[i]
+            current_direction = current_operation['direction']
+
+            self.transit(operation_params=current_operation, boundary_conditions=current_bcs)
+
+            if i != len(operation_params):
+                next_operation, next_bcs = operation_params[i + 1], boundary_conditions[i + 1]
+
+                dt = next_operation['ts_locks_ready']
+                next_direction = next_operation['direction']
+
+                if current_direction != next_direction:
+                    if next_direction != 'dummy':
+                        t_elapsed = self.minutes_since_operation_started(dt_string=dt) - 30
+                        self.turnaround(boundary_conditions=next_bcs, new_direction=next_direction, t_init=t_elapsed)
     
     def transit(self, operation_params, boundary_conditions):
         # Extract volume of the ship transiting the lock
