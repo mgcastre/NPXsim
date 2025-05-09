@@ -27,11 +27,11 @@ upper_chamber.change_length(305)
 
 # Perform one lock cycle (downlockage):
 upper_chamber.add_ship(V_ship=300*30*12)
-upper_chamber.fill_chamber(H_final=25.5, S_lift=0.5, ts=10)
+upper_chamber.fill_chamber(H_final=25.5, S_lift=0.5, t_min=10)
 V_ex = 0.25*upper_chamber.water_volume[-1]
-upper_chamber.ship_enters(V_lhs=V_ex, S_lhs=0.5, ts=25)
-upper_chamber.drain_chamber(H_final=24, ts=35)
-upper_chamber.ship_leaves(V_rhs=V_ex, S_rhs=3.5, ts=50)
+upper_chamber.ship_enters(V_lhs=V_ex, S_lhs=0.5, t_min=25)
+upper_chamber.drain_chamber(H_final=24, t_min=35)
+upper_chamber.ship_leaves(V_rhs=V_ex, S_rhs=3.5, t_min=50)
 # %%
 
 plt.plot(upper_chamber.time, upper_chamber.salinity)
