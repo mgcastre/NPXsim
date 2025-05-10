@@ -3,7 +3,7 @@
 
 # Required libraries
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 from typing import List, NamedTuple, Optional
 
 
@@ -63,6 +63,8 @@ class OperationParameters(BaseModel):
 # Data class for model output
 
 class OperationOutputs(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     lockage_id: Optional[List[int]] = None
     date_time: Optional[List[pd.Timestamp]] = None
     salt_load_vd: Optional[List[float]] = None
