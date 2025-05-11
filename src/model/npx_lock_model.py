@@ -96,10 +96,6 @@ class NeoPanamaxLock:
         # Pass the temperature to the class attribute
         self.T = water_temperature
 
-        # Initialize time counter for minutes elapsed since start of the operation
-        self.operation_start_dt = ts_lock_operation_start
-        self.t_min = 0
-
 
     def calc_initial_levels(self, H_lake, H_ocean, direction):
         """
@@ -187,6 +183,10 @@ class NeoPanamaxLock:
         Main method that performs the lock operation. This functions controls whether a transit is performed
         or if a turnaround is needed (in case two consecutive transits are in opposite directions).
         """
+        start_dt = operation_params_list[0].dt_lockage_starts
+        self.operation_start_dt = start_dt
+        self.time = 0
+
         for i in range(len(operation_params_list)):
             current_operation = OperationParameters(**operation_params_list[i])
             current_direction = current_operation.direction
@@ -228,7 +228,8 @@ class NeoPanamaxLock:
         return new_dt_object.strftime("%Y-%m-%d %H:%M:%S")
 
 
-    def transit(self, operation_params, boundary_conditions):
+    def transit(self, operation_params: OperationParameters,
+                boundary_conditions: pd.DataFrame) -> None:
 
         # Log start of transit
         logger.info(
@@ -248,11 +249,11 @@ class NeoPanamaxLock:
             raise ValueError("Direction must be either 'up', 'down' or 'dummy'.")
 
         # Log end of transit
-        logger.info(f'[{self.minutes_to_datetime(self.t_min)}] - '
+        logger.info(f'[{self.minutes_to_datetime(self.time)}] - '
                     f'LOCKAGE ({operation_params.lockage_id} FINISHES')
 
 
-    def uplockage(self, inputs, bcs):
+    def uplockage(self, inputs: OperationParameters, bcs: pd.DataFrame) -> None:
 
         # 1) Drain the lock chamber to the level of the ocean (LH4)
         H_ocean, S_ocean = hf.extract_boundary_conditions(
@@ -260,65 +261,153 @@ class NeoPanamaxLock:
 
         if self.chambers['LC'].get_current_level() > H_ocean:
             drain_time = 12  # Assumed time it takes for the lower chamber to drain (minutes)
-            equalization_start_time = self.t_min - drain_time
-            self.chambers['LC'].record_current_status(t_min=equalization_start_time)
+            equalization_start_time = self.time - drain_time
+            self.chambers['LC'].record_current_status(time=equalization_start_time)
             logger.info(f'[{self.minutes_to_datetime(equalization_start_time)}] - LH4 Equalization Starts')
 
-            if inputs.wsb_flag:
-                self.drain_chamber_to_wsb(chamber='LC', ts=time0, teq=tdrain)
+            if inputs.wsb_flag.lock_head_4:
+                self.drain_chamber_to_wsb(
+                    chamber='LC', time=equalization_start_time, eq_time=drain_time)
 
-            self.chambers['LC'].drain_chamber(H_final=H_ocean, t_min=initial_time_stamp)
-            logger.info(f'[{self.minutes_to_datetime(initial_time_stamp)}] - LH4 Equalization Finishes')
+            self.chambers['LC'].drain_chamber(H_final=H_ocean, time=self.time)
+            logger.info(f'[{self.minutes_to_datetime(self.time)}] - LH4 Equalization Finishes')
 
         else:
-            logger.info(f'[{self.minutes_to_datetime(self.t_min)}] - LH4 Already Equalized')
+            logger.info(f'[{self.minutes_to_datetime(self.time)}] - LH4 Already Equalized')
 
         ## 2) Gates at LH4 open, salinity enters from the ocean and ship enters the lock
-        t_transit = self.tGateOpen['LH4']  # minutes
-        time_stamp = initial_time_stamp + t_transit  # minutes
-        V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean)
-        self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, t_min=time_stamp)
+        t_transit = inputs.transit_time.lock_head_4  # minutes
+        self.time += t_transit  # Update time after transit
+        V_ex_ocean = self.exchange_with_boundary(S_ocean=S_ocean, t_open=t_transit)
+        self.chambers['LC'].ship_enters(V_lhs=V_ex_ocean, S_lhs=S_ocean, time=self.time)
 
         ## 3) Equalization and transit between LC and MC
-        teq = self.eqTime['LC']  # minutes
-        time_stamp = self.equalize_and_cross(
-            lock_head='LH3', direction='up', wsb_use=wsb_use, init_time=time_stamp, teq=teq)
+
 
         ## 4) Equalization and transit between MC and UC
-        teq = self.eqTime['MC']  # minutes
-        time_stamp = self.equalize_and_cross(
-            lock_head='LH2', direction='up', wsb_use=wsb_use, init_time=time_stamp, teq=teq)
+
 
         ## 5) Lift the ship to the level of the lake (LH1)
+        time_stamp = self.minutes_to_datetime(self.time)
+        H_lake, S_lake = hf.extract_boundary_conditions(df=bcs, time_stamp=time_stamp, location='lake')
+
         if self.chambers['UC'].get_current_level() < H_lake:
-            self.chambers['UC'].record_current_status(t_min=time_stamp)
-            logger.info(f'[{self.minutes_to_datetime(time_stamp)}] - LH1 Equalization Starts')
-            ## 5.1) Fill water from WSB (if needed)
-            if sum(wsb_use['UC'].values()) > 0:
-                self.fill_chamber_from_wsb(chamber='UC', ts=time_stamp, teq=self.eqTime['UC'])
-            ## 5.2) Finish filling chamber to the level of the lake
-            start_luc = self.chambers['UC'].get_current_level()
-            wldiff = H_lake - start_luc  # Difference in water level in meters
-            logger.debug(f'[{self.minutes_to_datetime(time_stamp)}] - Difference in water level: {wldiff:0.2f} m')
-            time_stamp = time_stamp + self.eqTime['UC']  # minutes to fill chamber
+            logger.info(f'[{time_stamp}] - LH1 Equalization Starts')
+
+            self.chambers['UC'].record_current_status(t_min=self.time)
+            eq_time = inputs.equalization_time.upper_chamber
+
+            if inputs.wsb_flag.lock_head_1:
+                self.fill_chamber_from_wsb(chamber='UC', time=self.time, eq_time=eq_time)
+
+            ## Water level difference between lake and upper chamber after using the basins
+            dh = H_lake - self.chambers['UC'].get_current_level()
+            logger.debug(f'{" "*24} - Water level difference with lake: {dh:0.2f} m')
+
+            self.time += eq_time  # Update time after filling the chamber
             self.chambers['UC'].fill_chamber(H_final=H_lake, S_lift=S_lake, t_min=time_stamp)
-            logger.info(f'[{self.minutes_to_datetime(time_stamp)}] - LH1 Equalization Finishes')
-            # super().record_freshwater_consumed(start_luc=start_luc, end_luc=H_lake, ts=time_stamp)
+            logger.info(f'[{self.minutes_to_datetime(self.time)}] - LH1 Equalization Finishes')
+            self.record_freshwater_consumed(level_difference=dh, time=self.time)
+
         else:
-            # super().record_freshwater_consumed(start_luc=H_lake, end_luc=H_lake, ts=time_stamp)
-            logger.info(f'[{self.minutes_to_datetime(time_stamp)}] - LH1 Already Equalized')
+            logger.info(f'[{time_stamp}] - LH1 Already Equalized')
+            self.record_freshwater_consumed(level_difference=0, time=self.time)
 
         ## 6) Gates at LH1 open, salt mass enters the lake and ship leaves the lock
-        t_transit = self.tGateOpen['LH1']  # minutes
-        time_stamp = time_stamp + t_transit  # minutes
-        S_chamber = self.chambers['UC'].salinity[-1]
+        t_transit = inputs.transit_time.lock_head_1
+        self.time = self.time + t_transit  # minutes
         V_ex_lake = super().exchange_with_boundary(S_lake=S_lake)
         self.chambers['UC'].ship_leaves(V_rhs=V_ex_lake, S_rhs=S_lake, t_min=time_stamp)
+
+        # S_chamber = self.chambers['UC'].salinity[-1]
         # super().calc_salt_mass_load(S_lake, V_ex_lake, S_chamber, direction='up', ts=time_stamp)
 
+        self.record_operation_outputs
 
-    def downlockage(self, inputs, bcs):
+    def downlockage(self, inputs: OperationParameters, bcs: pd.DataFrame) -> None:
         pass
+
+
+    def drain_chamber_to_wsb(self, chamber, time, eq_time):
+        for basin in ['Top', 'Int', 'Bot']:
+            logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} started draining to {basin} basin')
+
+            self.basins[chamber][basin].record_current_status(time=time)
+            time = time + eq_time / 4  # Assumed time for equalization
+
+            Hf = self.basin_chamber_final_level(basin=basin, chamber=chamber)
+
+            S_lift = self.chambers[chamber].get_current_salinity()
+            self.chambers[chamber].drain_chamber(H_final=Hf, time=time)
+            self.basins[chamber][basin].fill_basin(H_final=Hf, S_lift=S_lift, time=time)
+
+            logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} finished draining to {basin} basin')
+
+            # try:
+            #     self.check_reservoir_limits(Hf, chamber, ts, basin)
+            # except ReservoirOverflowError:
+            #     continue
+
+
+    def fill_chamber_from_wsb(self, chamber, time, eq_time):
+        for basin in ['Bot', 'Int', 'Top']:
+            logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} started filling from {basin} basin')
+
+            self.basins[chamber][basin].record_current_status(time=time)
+            time = time + eq_time / 4  # Assumed time for equalization
+
+            Hf = self.basin_chamber_final_level(basin=basin, chamber=chamber)
+
+            S_lift = self.basins[chamber][basin].get_current_salinity()
+            self.basins[chamber][basin].drain_basin(H_final=Hf, time=time)
+            self.chambers[chamber].fill_chamber(H_final=Hf, S_lift=S_lift, time=time)
+
+            logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} finished filling from {basin} basin')
+
+            # try:
+            #     self.check_reservoir_limits(Hf, chamber, ts, basin)
+            # except ReservoirOverflowError:
+            #     continue
+
+
+    def basin_chamber_final_level(self, basin: str, chamber: str) -> float:
+        A1 = self.chambers[chamber].area
+        H1 = self.chambers[chamber].get_current_level()
+
+        A2 = self.basins[chamber][basin].area
+        H2 = self.basins[chamber][basin].get_current_level()
+
+        Hf = hd.calc_equalization_level(A1, A2, H1, H2)
+
+        logger.debug(f'{" " * 24}{chamber} initial level = {H1:.2f} m')
+        logger.debug(f'{" " * 24}{chamber[0]}B{basin} initial level = {H2:.2f} m')
+
+        return Hf
+
+
+    def lock_exchange_coefficient(self, S_lhs, S_rhs, water_depth, length, t_open, eta=1.0):
+
+        # Calculate density of water in left and right of lock gate
+        rho_lhs = hd.Rho_from_PSU(Salt=S_lhs, Temp=self.T)
+        rho_rhs = hd.Rho_from_PSU(Salt=S_rhs, Temp=self.T)
+
+        # Sort densities
+        rho1, rho2 = (rho_rhs, rho_lhs) \
+            if rho_lhs > rho_rhs else (rho_lhs, rho_rhs)
+
+        # Calculate the exchange coefficient
+        Eff = hd.exchange_coefficient(
+            rho1=rho1, rho2=rho2, H=water_depth,
+            L=length, tOpen=t_open, eta=eta
+        )
+
+        return Eff
+
+
+    def record_freshwater_consumed(self, level_difference, time):
+        # Recording amount of freshwater used in million cubic meters (hm3)
+        volume = level_difference * self.chambers['UC'].area
+        self.operation_outputs.date_time = self.minutes_to_datetime(time)
 
 
     def turnaround(self, bcs, new_direction, t_init):
