@@ -24,6 +24,9 @@ class ControlVolume:
     
     def get_operating_limits(self):
         return self.H_min, self.H_max
+
+    def get_dimensions(self):
+        return self.length, self.width
     
     def get_current_salinity(self):
         return self.salinity[-1]
