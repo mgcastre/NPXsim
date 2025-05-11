@@ -34,6 +34,13 @@ class EqualizationTimes(NamedTuple):
     upper_chamber: int  # minutes
 
 
+class WaterSavingBasinFlag(NamedTuple):
+    lock_head_1: bool = 0
+    lock_head_2: bool = 0
+    lock_head_3: bool = 0
+    lock_head_4: bool = 0
+
+
 class WaterSavingBasinUse(BaseModel):
     """
     example_wsb_use_dict = {
@@ -54,10 +61,10 @@ class OperationParameters(BaseModel):
     direction: str
     ship_volume: float
     dt_lockage_starts: str # string formated as a date '%Y-%m-%d %H:%M:%S'
-    equalization_times: EqualizationTimes
-    gate_open_times: TransitTimes
-    wsb_use: WaterSavingBasinUse
-    wsb_flag: bool
+    equalization_time: EqualizationTimes
+    transit_time: TransitTimes
+    wsb_flag: WaterSavingBasinFlag = WaterSavingBasinFlag()
+    wsb_use: Optional[WaterSavingBasinUse] = None
 
 
 # Data class for model output
