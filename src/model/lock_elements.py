@@ -39,29 +39,29 @@ class ControlVolume:
         S = self.get_current_salinity()
         return V, S
 
-    def update_status(self, V, S, H, t_min):
-        self.time.append(t_min) # minutes
+    def update_status(self, V, S, H, time):
+        self.time.append(time) # minutes
         self.water_level.append(H)
         self.water_volume.append(V)
         self.salinity.append(S)
     
-    def record_current_status(self, t_min):
+    def record_current_status(self, time):
         H = self.get_current_level()
         V, S = self.get_current_status()
-        self.update_status(V=V, S=S, H=H, t_min=t_min)
+        self.update_status(V=V, S=S, H=H, time=time)
     
-    def _drain(self, H_final, t_min):
+    def _drain(self, H_final, time):
         V_final = (H_final - self.z_bottom)*self.area
         # Although water level changes, salinity remains constant
-        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, t_min=t_min)
+        self.update_status(V=V_final, S=self.salinity[-1], H=H_final, time=time)
     
-    def _fill(self, H_final, S_lift, t_min):
+    def _fill(self, H_final, S_lift, time):
         V_init, S_init = self.get_current_status()
         dH = H_final - self.water_level[-1]
         V_lift = dH*self.area
         V_final = V_init + V_lift
         S_final = (V_lift*S_lift + V_init*S_init) / V_final
-        self.update_status(V=V_final, S=S_final, H=H_final, t_min=t_min)
+        self.update_status(V=V_final, S=S_final, H=H_final, time=time)
     
     def get_results_dictionary(self):
         results = {
@@ -84,25 +84,25 @@ class LockChamber(ControlVolume):
     def add_ship(self, V_ship):
         self.V_ship = V_ship
     
-    def drain_chamber(self, H_final, t_min):
-        super()._drain(H_final=H_final, t_min=t_min)
+    def drain_chamber(self, H_final, time):
+        super()._drain(H_final=H_final, time=time)
     
-    def fill_chamber(self, H_final, S_lift, t_min):
-        super()._fill(H_final=H_final, S_lift=S_lift, t_min=t_min)
+    def fill_chamber(self, H_final, S_lift, time):
+        super()._fill(H_final=H_final, S_lift=S_lift, time=time)
     
-    def ship_enters(self, V_lhs, S_lhs, t_min):
+    def ship_enters(self, V_lhs, S_lhs, time):
         V_init, S_init = super().get_current_status()
         V_final = V_init - self.V_ship
         S_final = (S_init*(V_init - V_lhs - self.V_ship) + V_lhs*S_lhs) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        super().update_status(V=V_final, S=S_final, H=self.water_level[-1], t_min=t_min)
+        super().update_status(V=V_final, S=S_final, H=self.water_level[-1], time=time)
     
-    def ship_leaves(self, V_rhs, S_rhs, t_min):
+    def ship_leaves(self, V_rhs, S_rhs, time):
         V_init, S_init = super().get_current_status()
         V_final = V_init + self.V_ship
         S_final = (S_init*(V_init - V_rhs) + S_rhs*(V_rhs + self.V_ship)) / V_final
         # Although volume of water gets exchanged, the water level remains constant
-        super().update_status(V=V_final, S=S_final, H=self.water_level[-1], t_min=t_min)
+        super().update_status(V=V_final, S=S_final, H=self.water_level[-1], time=time)
 
 
 class WaterSavingBasin(ControlVolume):
@@ -110,8 +110,8 @@ class WaterSavingBasin(ControlVolume):
     def __init__(self, length, width, z_bottom, z_top, H_min, H_max):
         super().__init__(length, width, z_bottom, z_top, H_min, H_max)
     
-    def drain_basin(self, H_final, t_min):
-        super()._drain(H_final=H_final, t_min=t_min)
+    def drain_basin(self, H_final, time):
+        super()._drain(H_final=H_final, time=time)
     
-    def fill_basin(self, H_final, S_lift, t_min):
-        super()._fill(H_final=H_final, S_lift=S_lift, t_min=t_min)
+    def fill_basin(self, H_final, S_lift, time):
+        super()._fill(H_final=H_final, S_lift=S_lift, time=time)
