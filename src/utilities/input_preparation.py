@@ -3,11 +3,11 @@
 
 # Load libraries
 import pandas as pd
-from src.model.data_classes import *
 
 # Define functions
 
-def filter_date_range(df, start_date, end_date, date_col='Date_Time'):
+def filter_date_range(df: pd.DataFrame, start_date: str, end_date: str,
+                      date_col: str ='Date_Time') -> pd.DataFrame:
     """
     Filters a dataframe by a date range. The function accepts a dataframe and
     two strings with the start and end dates in the format 'YYYY-MM-DD HH:MM:SS'.
@@ -18,9 +18,31 @@ def filter_date_range(df, start_date, end_date, date_col='Date_Time'):
     df_filtered = df.loc[cond01 & cond02, :]
     return df_filtered
 
-def prepare_obs_salinities(df, start_date, end_date):
+
+def prepare_boundary_conditions(bcs: pd.DataFrame or dict, date_range: tuple[str, str],
+                                type: str ='time-series') -> pd.DataFrame:
     """
-    Prepares the observed salinities of the lock chambers. The function accepts
+
+    """
+    if type == 'time-series':
+        df = filter_date_range(df=bcs, start_date=date_range[0],
+                               end_date=date_range[1], date_col='Date_Time')
+
+    elif type == 'constant':
+        start, end = date_range
+        pandas_date_range = pd.date_range(start, end, freq='5min')
+        df = pd.DataFrame(bcs, index=pandas_date_range).reset_index()
+        df = df.rename(columns={'index': 'date_time'})
+
+    else:
+        raise ValueError("type must be either time-series or constant.")
+
+    return df
+
+
+def prepare_obs_salinity(df, start_date, end_date):
+    """
+    Prepares the observed salinity of the lock chambers. The function accepts
     a dataframe that must contain the columns 'Date_Time', 'LC', 'MC', and 'UC'.
     Additionally, the function accepts the start and end dates to filter the data.
     """
@@ -31,27 +53,51 @@ def prepare_obs_salinities(df, start_date, end_date):
     ## Return filtered dataframe
     return df_filtered
 
-def prepare_boundary_conditions(lock_operations_df):
-    """
-    Creates a list of dictionaries containing the boundary conditions to run
-    the lock model (run transits). The function acceps a dataframe that
-    must contain the following columns:
-    - Ocean_Salinity: Salinity of the ocean
-    - Ocean_Level: Level of the ocean
-    - Lake_Salinity: Salinity of the lake
-    - Lake_Level: Level of the lake
-    """
-    ## Define a dictionary to rename columns
-    names_dict = {'Ocean_Salinity': 'S_ocean', 'Ocean_Level': 'H_ocean',
-                  'Lake_Salinity': 'S_lake', 'Lake_Level': 'H_lake'}
-    ## Create dictionary for boundary conditions
-    boundary_conditions = lock_operations_df.rename(columns=names_dict) \
-        .loc[:, ['S_ocean', 'H_ocean', 'S_lake', 'H_lake']] \
-            .to_dict('records')
-    ## Return dictionary
-    return boundary_conditions
 
-def prepare_operation_parameters(lock_operations_df):
+def extract_obs_water_levels(lock_operations_df, filling_time=10):
+    """
+    Extracts the observed water levels for the upper lock chamber. The function
+    accepts a dataframe that must contain the following columns:
+    - TS_LakeGateOpens: Time when the lake gate opens
+    - Start_LUC: Water level at the start of filling the upper chamber (sometime before lake gate opens)
+    - End_LUC: Water level at the end of filling the upper chamber (right before lake gate opens)
+    Additionally, the function accepts a filling time (in minutes) to calculate the timestamp
+    for the initial water level in the lock chamber (Start_LUC).
+    """
+    ## Extract observed water levels for upper chamber
+    end_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'End_LUC']]
+    start_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'Start_LUC']]
+    ## Calculate time at the start of filling the upper chamber
+    end_luc['Date_Time'] = pd.to_datetime(end_luc['TS_LakeGateOpens'])
+    start_luc['Date_Time'] = pd.to_datetime(start_luc['TS_LakeGateOpens']) \
+                             - pd.to_timedelta(filling_time, unit='min')
+    ## Rename and drop columns
+    start_luc.rename(columns={'Start_LUC': 'UC'}, inplace=True)
+    start_luc.drop(columns='TS_LakeGateOpens', inplace=True)
+    end_luc.rename(columns={'End_LUC': 'UC'}, inplace=True)
+    end_luc.drop(columns='TS_LakeGateOpens', inplace=True)
+    # Concatenate start and end level of upper chamber
+    obs_water_levels = pd.concat([start_luc, end_luc])
+    # Assign index and sort
+    obs_water_levels.set_index('Date_Time', inplace=True)
+    obs_water_levels.sort_index(inplace=True)
+    # Return results
+    return obs_water_levels
+
+
+def extract_initial_salinity(salinity_df, initial_time):
+    """
+    Extracts the initial salinity for the lock chambers. The function accepts
+    a dataframe that must contain the columns 'Date_Time', 'LC', 'MC', and 'UC'.
+    Additionally, the function accepts the initial time to extract the salinities.
+    """
+    initial_salinity = salinity_df \
+        .loc[salinity_df.index == initial_time] \
+            .squeeze().to_dict()
+    return initial_salinity
+
+
+def parse_operation_parameters(lock_operations_df):
     """
     Creates a list of dictionaries containing the operation parameters to run     
     the lock model (run transits). The function acceps a dataframe that
@@ -146,46 +192,6 @@ def prepare_operation_parameters(lock_operations_df):
     ## Return dictionary
     return operation_params
 
-def extract_obs_water_levels(lock_operations_df, filling_time=10):
-    """
-    Extracts the observed water levels for the upper lock chamber. The function
-    accepts a dataframe that must contain the following columns:
-    - TS_LakeGateOpens: Time when the lake gate opens
-    - Start_LUC: Water level at the start of filling the upper chamber (sometime before lake gate opens)
-    - End_LUC: Water level at the end of filling the upper chamber (right before lake gate opens)
-    Additionally, the function accepts a filling time (in minutes) to calculate the timestamp
-    for the initial water level in the lock chamber (Start_LUC).
-    """
-    ## Extract observed water levels for upper chamber
-    end_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'End_LUC']]
-    start_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'Start_LUC']]
-    ## Calculate time at the start of filling the upper chamber
-    end_luc['Date_Time'] = pd.to_datetime(end_luc['TS_LakeGateOpens'])
-    start_luc['Date_Time'] = pd.to_datetime(start_luc['TS_LakeGateOpens']) \
-                             - pd.to_timedelta(filling_time, unit='min')
-    ## Rename and drop columns
-    start_luc.rename(columns={'Start_LUC': 'UC'}, inplace=True)
-    start_luc.drop(columns='TS_LakeGateOpens', inplace=True)
-    end_luc.rename(columns={'End_LUC': 'UC'}, inplace=True)
-    end_luc.drop(columns='TS_LakeGateOpens', inplace=True)
-    # Concate start and end level of upper chamber
-    obs_water_levels = pd.concat([start_luc, end_luc])
-    # Assign index and sort
-    obs_water_levels.set_index('Date_Time', inplace=True)
-    obs_water_levels.sort_index(inplace=True)
-    # Return results
-    return obs_water_levels
-
-def extract_initial_salinities(salinity_df, initial_time):
-    """
-    Extracts the initial salinities for the lock chambers. The function accepts
-    a dataframe that must contain the columns 'Date_Time', 'LC', 'MC', and 'UC'.
-    Additionally, the function accepts the initial time to extract the salinities.
-    """
-    initial_salinities = salinity_df \
-        .loc[salinity_df.index == initial_time] \
-            .squeeze().to_dict()
-    return initial_salinities
 
 def parse_design_specifications(df, wsb_output=True):
     """
@@ -251,6 +257,5 @@ def parse_design_specifications(df, wsb_output=True):
             'chamber_operating_limits': chamber_operating_limits,
         }
 
-
-    return LockDesignSpecifications(**design_specs_dict)
+    return design_specs_dict
 
