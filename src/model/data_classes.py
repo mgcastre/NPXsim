@@ -2,7 +2,7 @@
 # M. G. Castrellon | 8 May 2025
 
 # Required libraries
-import pandas as pd
+from datetime import datetime
 from pydantic import BaseModel,ConfigDict
 from typing import List, NamedTuple, Optional
 
@@ -67,17 +67,20 @@ class OperationParameters(BaseModel):
     wsb_use: Optional[WaterSavingBasinUse] = None
 
 
-# Data class for model output
+# Data classes for model output
 
-class OperationOutputs(BaseModel):
+class FreshwaterConsumed(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
     lockage_id: Optional[List[int]] = None
-    date_time: Optional[List[pd.Timestamp]] = None
-    salt_load_vd: Optional[List[float]] = None
-    salt_load_dc: Optional[List[float]] = None
-    freshwater_used: Optional[List[float]] = None
+    date_time: Optional[datetime] = None
+    value: Optional[float] = None
 
+class SaltMassLoad(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    lockage_id: Optional[List[int]] = None
+    date_time: Optional[datetime] = None
+    vessel_displacement: Optional[float] = None
+    density_current: Optional[float] = None
 
 if __name__ == '__main__':
     equalization_time = EqualizationTimes(10, 12, 10)
