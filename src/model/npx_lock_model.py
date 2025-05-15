@@ -227,7 +227,7 @@ class NeoPanamaxLock:
 
 
     def transit(self, operation_params: OperationParameters,
-                boundary_conditions: pd.DataFrame) -> None:
+                boundary_conditions: List) -> None:
 
         # Log start of transit
         logger.info(
@@ -251,7 +251,7 @@ class NeoPanamaxLock:
                     f'LOCKAGE ({operation_params.lockage_id} FINISHES')
 
 
-    def uplockage(self, inputs: OperationParameters, bcs: pd.DataFrame) -> None:
+    def uplockage(self, inputs: OperationParameters, bcs: List[namedtuple]) -> None:
 
         # 1) Drain the lock chamber to the level of the ocean (LH4)
         H_ocean, S_ocean = hf.extract_boundary_conditions(
@@ -326,7 +326,7 @@ class NeoPanamaxLock:
         pass
 
 
-    def drain_chamber_to_wsb(self, chamber, time, eq_time):
+    def drain_chamber_to_wsb(self, chamber: str, time: int, eq_time: int) -> None:
         for basin in ['Top', 'Int', 'Bot']:
             logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} started draining to {basin} basin')
 
@@ -347,7 +347,7 @@ class NeoPanamaxLock:
             #     continue
 
 
-    def fill_chamber_from_wsb(self, chamber, time, eq_time):
+    def fill_chamber_from_wsb(self, chamber: str, time: int, eq_time: int) -> None:
         for basin in ['Bot', 'Int', 'Top']:
             logger.debug(f'[{self.minutes_to_datetime(time)}] - {chamber} started filling from {basin} basin')
 
@@ -383,7 +383,7 @@ class NeoPanamaxLock:
         return Hf
 
 
-    def lock_exchange_coefficient(self, S_lhs, S_rhs, water_depth, length, t_open, eta=1.0):
+    def calc_lock_exchange_coefficient(self, H, S_lhs, S_rhs, z_sill, t_open, eta=1.0) -> float:
 
         # Calculate density of water in left and right of lock gate
         rho_lhs = hd.Rho_from_PSU(Salt=S_lhs, Temp=self.T)
@@ -395,14 +395,15 @@ class NeoPanamaxLock:
 
         # Calculate the exchange coefficient
         Eff = hd.exchange_coefficient(
-            rho1=rho1, rho2=rho2, H=water_depth,
-            L=length, tOpen=t_open, eta=eta
+            rho1=rho1, rho2=rho2, H=(H - z_sill),
+            L=self.chambers['MC'].length,
+            tOpen=t_open, eta=eta
         )
 
         return Eff
 
 
-    def record_freshwater_consumed(self, level_difference, time):
+    def record_freshwater_consumed(self, level_difference: float, time: int):
         # Recording amount of freshwater used in million cubic meters (hm3)
         volume = level_difference * self.chambers['UC'].area
         self.operation_outputs.date_time = self.minutes_to_datetime(time)
