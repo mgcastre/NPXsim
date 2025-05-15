@@ -5,10 +5,11 @@
 import logging
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 from datetime import datetime, timedelta
 
 # Local packages
-from data_classes import *
+from io_data_classes import *
 from lock_elements import *
 from custom_exceptions import *
 import src.utilities.hydrodynamics as hd
@@ -61,29 +62,26 @@ class NeoPanamaxLock:
                     H_max=design_specs.wsb_operating_limits[cham][1]
                 )
 
-        # Create attributes for lock heads
-        self.lock_heads = {'Z': design_specs.z_lock_head_sills}
-        self.lock_heads['Chambers'] = {
-            'LH1': ['UC'],
-            'LH2': ['MC', 'UC'],
-            'LH3': ['LC', 'MC'],
-            'LH4': ['LC']
-        }
+        # Initialize lock head data class
+        self.lock_heads = {}
+        for lh in [f'LH{x}' for x in range(1, 5)]:
+                self.lock_heads[lh] = LockHead(**design_specs.lock_head_params[lh])
 
         # Initialize data object to store operation outputs
-        self.operation_outputs = OperationOutputs()
+        self.freshwater_consumed = FreshwaterConsumed()
+        self.salt_mass_load = SaltMassLoad()
 
 
-    def set_initial_conditions(self, H_lake, H_ocean, initial_salinity,
-                               direction, ts_lock_operation_start,
-                               water_temperature=28):
+    def set_initial_conditions(self, H_lake, H_ocean, salinity,
+                               direction, water_temperature):
 
+        # Calculate initial levels based on boundary conditions
         initial_levels = self.calc_initial_levels(H_lake, H_ocean, direction)
 
         # Add initial conditions to the lock chambers and basins
         for cham in ['LC', 'MC', 'UC']:
-            chamber_salinity = initial_salinity[cham]
-            basin_salinity = initial_salinity[cham[0]+'B']
+            chamber_salinity = salinity[cham].chamber
+            basin_salinity = salinity[cham].basins
 
             self.chambers[cham].add_initial_conditions(
                 H0=initial_levels[cham], S0=chamber_salinity)
