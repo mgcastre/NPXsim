@@ -21,6 +21,10 @@ class LockDesignSpecifications(BaseModel):
 
 # Data classes for simulation input
 
+class InitialSalinity(NamedTuple):
+    chamber: float
+    basins: float
+
 class TransitTimes(NamedTuple):
     lock_head_1: int  # minutes
     lock_head_2: int  # minutes

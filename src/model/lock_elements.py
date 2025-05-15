@@ -1,6 +1,24 @@
 # Elements for Panama Canal's lock model
 # M. G. Castrellon | 18 March 2025
 
+# Required libraries
+from dataclasses import dataclass
+
+@dataclass
+class LockHead:
+    z_sill: float
+    upper_boundary: str
+    lower_boundary: str
+
+    def get_chamber_order(self, direction):
+        if direction == 'up':
+            return self.lower_boundary, self.upper_boundary
+        elif direction == 'down':
+            return self.upper_boundary, self.lower_boundary
+        else:
+            raise ValueError("Direction must be either 'up' or 'down'")
+
+
 class ControlVolume:
 
     def __init__(self, length, width, z_bottom, z_top,
