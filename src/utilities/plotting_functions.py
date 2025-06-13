@@ -11,10 +11,15 @@ def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
                       colors=['darkorange', 'green', 'royalblue'],
                       linestyles=['-', '--', '-.', ':'], 
                       markers=['', '', '', ''],
-                      return_fig=False):
+                      return_fig=False, 
+                      title='default'):
     ## Initialize plot
     fig, ax = plt.subplots(figsize=figsize)
-    ax.set_title(f'Simulated water levels in all lock chambers and basins')
+    if title == 'default':
+        ax.set_title(f'Simulated water levels in all lock chambers and basins')
+    else:
+        ax.set_title(title)
+    
     ## Plot vertical line for when when each lockage started
     for time in lock_times:
         ax.axvline(x=time, color='black', linestyle='-', alpha=0.25)
@@ -51,7 +56,7 @@ def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
 
 # Define function to plot simulated and observed salinities
 def plot_salinities(obs, sim, xlims, ylims, reservoirs, lock_times, figsize=(12, 5), 
-                    colors=['darkorange', 'green', 'royalblue'], 
+                    colors=['darkorange', 'green', 'royalblue'], alpha_obs=0.5,
                     styles={'Sim': '-', 'Obs': 'o'}, 
                     return_fig=False):
     ## Initialize plot
@@ -74,9 +79,11 @@ def plot_salinities(obs, sim, xlims, ylims, reservoirs, lock_times, figsize=(12,
         ### Plot simulated salinities
         sim.loc[:, my_res].plot(ax=ax, alpha=0.8, x_compat=True, color=colors[i], 
                                 lw=2, linestyle=styles['Sim'], marker='', label=f'{my_res} Sim')
+        
         ## Plot observed salinities
-        obs.loc[:, my_res].plot(ax=ax, alpha=0.5, x_compat=True, color=colors[i], 
-                                linestyle='', marker=styles['Obs'], markersize=6, label=f'{my_res} Obs')
+        obs.loc[:, my_res].plot(ax=ax, alpha=alpha_obs, x_compat=True, color=colors[i], 
+                                linestyle='', marker=styles['Obs'], markersize=6, 
+                                label=f'{my_res} Obs')
     ## Add title to the plot
     ax.set_title(my_title)
     ## Format axes
@@ -90,19 +97,22 @@ def plot_salinities(obs, sim, xlims, ylims, reservoirs, lock_times, figsize=(12,
     for label in ax.get_xticklabels():
         label.set_horizontalalignment('center')
 
-    ## Format legend
-    lines, labels = ax.get_legend_handles_labels()
-    obs_lines = [lines[1], lines[3], lines[5]]
+    ## Format and legend
+    lines, _ = ax.get_legend_handles_labels()
     sim_lines = [lines[0], lines[2], lines[4]]
-    leg1 = ax.legend(obs_lines, handle_labels, title='Observed', loc='upper left',
+    obs_lines = [lines[1], lines[3], lines[5]]
+    
+    leg1 = ax.legend(sim_lines, handle_labels, title='Simulated', loc='upper left',
                      bbox_to_anchor=(1.0, 1.0), frameon=False)
-    leg2 = ax.legend(sim_lines, handle_labels, title='Simulated', loc='upper left',
+    
+    leg2 = ax.legend(obs_lines, handle_labels, title='Observed', loc='upper left',
                      bbox_to_anchor=(1.0, 0.7), frameon=False)
-    ## Add legend
-    ax.add_artist(leg1)
-    ax.add_artist(leg2)
+
+    fig.add_artist(leg1)
+    fig.add_artist(leg2)
 
     ## Display plot
+    plt.tight_layout(w_pad=0.5)
     plt.show()
 
     ## Return figure if requested

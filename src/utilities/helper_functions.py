@@ -6,12 +6,13 @@ import pandas as pd
 
 # Define functions
 
-def filter_date_range(df, start_date, end_date, date_col='Date_Time'):
+def filter_date_range(df, start_date, end_date, date_col='Date_Time',
+                      date_format='%Y-%m-%d %H:%M:%S'):
     """
     Filters a dataframe by a date range. The function accepts a dataframe and
     two strings with the start and end dates in the format 'YYYY-MM-DD HH:MM:SS'.
     """
-    df[date_col] = pd.to_datetime(df[date_col])
+    df[date_col] = pd.to_datetime(df[date_col], format=date_format)
     cond01 = df[date_col] >= pd.to_datetime(start_date)
     cond02 = df[date_col] <= pd.to_datetime(end_date)
     df_filtered = df.loc[cond01 & cond02, :]
@@ -72,23 +73,13 @@ def prepare_operation_parameters(lock_operations_df):
     - UCWSBs: Flag to indicate if WSBs are used in the upper chamber
     - MCWSBs: Flag to indicate if WSBs are used in the middle chamber
     - LCWSBs: Flag to indicate if WSBs are used in the lower chamber
-    - UWSBTop: Flag to indicate if the top WSB is used in the upper chamber is used
-    - UWSBInt: Flag to indicate if the intermediate WSB is used in the upper chamber is used
-    - UWSBBot: Flag to indicate if the bottom WSB is used in the upper chamber is used
-    - MWSBTop: Flag to indicate if the top WSB is used in the middle chamber is used
-    - MWSBInt: Flag to indicate if the intermediate WSB is used in the middle chamber is used
-    - MWSBBot: Flag to indicate if the bottom WSB is used in the middle chamber is used
-    - LWSBTop: Flag to indicate if the top WSB is used in the lower chamber is used
-    - LWSBInt: Flag to indicate if the intermediate WSB is used in the lower chamber is used
-    - LWSBBot: Flag to indicate if the bottom WSB is used in the lower chamber is
     """
     ## Define columns of interest for lock operations
     transit_time_cols = [f'transitTimeLH{i}' for i in range(1, 5)]
     eq_time_cols = [f'equalzTime{x}' for x in ['UC', 'MC', 'LC']]
     other_cols = ['TS_LocksReady', 'TS_LockageStarts', 'Direction', 
                   'Ship_Vol_Disp', 'Chamber_Length']
-    wsb_use_cols = ['WSBasins'] + [f'{x}CWSBs' for x in ['U', 'M', 'L']] \
-        + [f'{x}WSB{y}' for x in ['U', 'M', 'L'] for y in ['Top', 'Int', 'Bot']]
+    wsb_use_cols = ['WSBasins'] + [f'{x}CWSBs' for x in ['U', 'M', 'L']]
     ## Extract operation parameters for lock operations
     list_of_cols = transit_time_cols + eq_time_cols + other_cols + wsb_use_cols
     operation_params_df = lock_operations_df.loc[:, ['Num'] + list_of_cols]
@@ -121,31 +112,18 @@ def prepare_operation_parameters(lock_operations_df):
                 'LH3': item['transitTimeLH3'],
                 'LH4': item['transitTimeLH4']
             },
+            'WSB_Flag': item['WSBasins'],
             'WSBUse_Simple': {
                 'UC': item['UCWSBs'],
                 'MC': item['MCWSBs'],
                 'LC': item['LCWSBs']
-            },
-            'WSBUse_Detailed': {
-                'UC': {
-                    'Top': item['UWSBTop'],
-                    'Int': item['UWSBInt'],
-                    'Bot': item['UWSBBot']},	
-                'MC': {
-                    'Top': item['MWSBTop'],
-                    'Int': item['MWSBInt'],
-                    'Bot': item['MWSBBot']},
-                'LC': {
-                    'Top': item['LWSBTop'],
-                    'Int': item['LWSBInt'],
-                    'Bot': item['LWSBBot']}
             }
         }
         operation_params.append(transformed_item)
     ## Return dictionary
     return operation_params
 
-def extract_obs_water_levels(lock_operations_df, filling_time=10):
+def extract_obs_water_levels(df, filling_time=10):
     """
     Extracts the observed water levels for the upper lock chamber. The function
     accepts a dataframe that must contain the following columns:
@@ -156,8 +134,8 @@ def extract_obs_water_levels(lock_operations_df, filling_time=10):
     for the initial water level in the lock chamber (Start_LUC).
     """
     ## Extract observed water levels for upper chamber
-    end_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'End_LUC']]
-    start_luc = lock_operations_df.loc[:, ['TS_LakeGateOpens', 'Start_LUC']]
+    end_luc = df.loc[:, ['TS_LakeGateOpens', 'End_LUC']]
+    start_luc = df.loc[:, ['TS_LakeGateOpens', 'Start_LUC']]
     ## Calculate time at the start of filling the upper chamber
     end_luc['Date_Time'] = pd.to_datetime(end_luc['TS_LakeGateOpens'])
     start_luc['Date_Time'] = pd.to_datetime(start_luc['TS_LakeGateOpens']) \
@@ -231,3 +209,18 @@ def parse_design_specifications(df, wsb_output=True):
         return lock_head_sills, chamber_parameters, wsb_parameters
     else:
         return lock_head_sills, chamber_parameters
+
+def format_operation_summary(operation_params, df_outputs):
+    """
+    Formats the operation summary DataFrame by merging salt load, freshwater consumption,
+    and operation parameters.
+    """
+    
+    # Select relevant columns for operation summary
+    op_columns = ['Num', 'TS_LockageStarts', 'Direction', 'WSBasins', 'Ship_Vol_Disp']
+    operation_summary = operation_params.loc[:, op_columns].copy()
+    
+    # Merge salt load and freshwater consumption with operation parameters
+    operation_summary = operation_summary.merge(df_outputs, on='Num', how='outer')
+        
+    return operation_summary
