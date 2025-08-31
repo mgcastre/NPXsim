@@ -1,7 +1,4 @@
-data/*
-notebooks/*
-outputs/*
-scripts/*
 **/__pycache__/
+.venv
+.idea
 *.log
-*.idea
