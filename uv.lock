@@ -373,7 +373,7 @@ requires-dist = [
     { name = "datetime", specifier = ">=5.5" },
     { name = "gsw", specifier = ">=3.6" },
     { name = "logging", specifier = ">=0.4" },
-    { name = "matplotlib", specifier = ">=3.10.7" },
+    { name = "matplotlib", specifier = ">=3.10" },
     { name = "numpy", specifier = ">=2.3" },
     { name = "pandas", specifier = ">=2.3" },
 ]
