@@ -2,12 +2,11 @@
 # M. G. Castrellon | 18 March 2025
 
 # Import Libraries
-import numpy as np
 import pandas as pd
 from datetime import datetime
-from model.lock_elements import *
-from model.custom_exceptions import *
-import utilities.hydrodynamics as hd
+from npxsim.model.lock_elements import *
+from npxsim.model.custom_exceptions import *
+import npxsim.utilities.hydrodynamics as hd
 
 # Define class
 class ThreeStepsLock:
