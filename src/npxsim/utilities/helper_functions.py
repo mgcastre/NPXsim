@@ -68,8 +68,8 @@ def prepare_operation_parameters(lock_operations_df):
     - TS_LocksReady: Time stamp for when locks are ready for the lockage
     - TS_LockageStarts: Lockage start time
     - Ship_Vol_Disp: Ship volume displacement
-    - Chamber_Length: Lock chamber length
-    - WSBasins: Flag to indicate if WSBs are used in the lockage
+    - Chamber_Length: Lock chamber lengt
+    - WSBasins: Flag to indicate if WSBasins are used during lockage
     - UCWSBs: Flag to indicate if WSBs are used in the upper chamber
     - MCWSBs: Flag to indicate if WSBs are used in the middle chamber
     - LCWSBs: Flag to indicate if WSBs are used in the lower chamber
@@ -79,16 +79,20 @@ def prepare_operation_parameters(lock_operations_df):
     eq_time_cols = [f'equalzTime{x}' for x in ['UC', 'MC', 'LC']]
     other_cols = ['TS_LocksReady', 'TS_LockageStarts', 'Direction', 
                   'Ship_Vol_Disp', 'Chamber_Length']
-    wsb_use_cols = ['WSBasins'] + [f'{x}CWSBs' for x in ['U', 'M', 'L']]
+    wsb_use_cols = [f'{x}CWSBs' for x in ['U', 'M', 'L']]
     ## Extract operation parameters for lock operations
     list_of_cols = transit_time_cols + eq_time_cols + other_cols + wsb_use_cols
-    operation_params_df = lock_operations_df.loc[:, ['Num'] + list_of_cols]
+    operation_params_df = lock_operations_df.loc[:, ['Num', 'WSBasins'] + list_of_cols]
     ## Add all of the transit and equalization times
     operation_params_df['Total_Lockage_Time'] = \
         operation_params_df[transit_time_cols + eq_time_cols].sum(axis=1)
     ## Rename vessel direction in lock operations
     operation_params_df['Direction'] = operation_params_df['Direction'] \
         .replace({'Downlockage': 'down', 'Uplockage': 'up'})
+    ### Add a flag if all WSBasins are used during lockage
+    operation_params_df['WSB_All_Flag'] = 0
+    operation_params_df['WSB_Num'] = operation_params_df[wsb_use_cols].sum(axis=1)
+    operation_params_df.loc[operation_params_df['WSB_Num'] == 3, 'WSB_All_Flag'] = 1
     ## Convert operation parameters to dictionary
     operation_params_raw = operation_params_df.to_dict('records')
     ## Transform dictionary into correct format
@@ -112,7 +116,8 @@ def prepare_operation_parameters(lock_operations_df):
                 'LH3': item['transitTimeLH3'],
                 'LH4': item['transitTimeLH4']
             },
-            'WSB_Flag': item['WSBasins'],
+            'WSB_Use_Flag': item['WSBasins'],
+            'WSB_All_Flag': item['WSB_All_Flag'],
             'WSBUse_Simple': {
                 'UC': item['UCWSBs'],
                 'MC': item['MCWSBs'],
