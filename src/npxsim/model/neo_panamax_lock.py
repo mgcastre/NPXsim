@@ -191,9 +191,12 @@ class NeoPanamaxLock(ThreeStepsLock):
 
     def drain_chamber_to_wsb(self, chamber, ts, teq):
         for basin in ['Top', 'Int', 'Bot']:
+            max_level = self.basins[chamber][basin].get_operating_limits()[1]
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} started draining to {basin} basin')
             self.basins[chamber][basin].record_current_status(ts=ts)
             Hf = self.equalization_level(cham=chamber, basin=basin)
+            # If Hf is outside of the safe operating limits, then set it to the safe limits.
+            if Hf > max_level: Hf = max_level
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.chambers[chamber].get_current_salinity()
             self.chambers[chamber].drain_chamber(H_final=Hf, ts=ts)
@@ -203,9 +206,12 @@ class NeoPanamaxLock(ThreeStepsLock):
     
     def fill_chamber_from_wsb(self, chamber, ts, teq):
         for basin in ['Bot', 'Int', 'Top']:
+            min_level = self.basins[chamber][basin].get_operating_limits()[0]
             logger.debug(f'[{self.ts_to_datetime(ts)}] - {chamber} started filling from {basin} basin')
             self.basins[chamber][basin].record_current_status(ts=ts)
             Hf = self.equalization_level(cham=chamber, basin=basin)
+            # If Hf is outside of the safe operating limits, then set it to the safe limits.
+            if Hf < min_level: Hf = min_level
             ts = ts + teq/4 # Updating time stamp with 1/4 of equalization time
             S_lift = self.basins[chamber][basin].get_current_salinity()
             self.basins[chamber][basin].drain_basin(H_final=Hf, ts=ts)
