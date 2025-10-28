@@ -264,7 +264,7 @@ class NeoPanamaxLock(ThreeStepsLock):
                 break
             if this_transit['Direction'] != next_transit['Direction']:
                 ts = self.calc_elapsed_minutes(next_transit['TS_LockageStarts'])
-                if this_transit['WSB_Flag']:
+                if this_transit['WSB_Use_Flag']:
                     tinit = ts - 40  # Start turnaround operation 40 minutes before next transit
                     logger.info(f'[{self.ts_to_datetime(tinit)}] - TURNAROUND WITH BASINS STARTS')
                     self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=tinit)
