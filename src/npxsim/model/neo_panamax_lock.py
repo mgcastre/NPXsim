@@ -219,9 +219,8 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.chambers[upper_cham].record_current_status(ts=init_time)
         logger.info(f'[{self.ts_to_datetime(init_time)}] - {lock_head} Equalization Started')
         # 1. Drain and fill chambers with water saving basins
-        if wsb_use[upper_cham]:
+        if wsb_use[upper_cham] & wsb_use[lower_cham]:
             self.drain_chamber_to_wsb(upper_cham, ts=init_time, teq=teq)
-        if wsb_use[lower_cham]:
             self.fill_chamber_from_wsb(lower_cham, ts=init_time, teq=teq)
         # 2. Finish equalization between chambers
         H_init_lower = self.chambers[lower_cham].get_current_level()
