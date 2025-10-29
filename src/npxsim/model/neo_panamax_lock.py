@@ -545,9 +545,9 @@ class NeoPanamaxLock(ThreeStepsLock):
         return df
 
     def get_water_levels(self, pivot=True, interpolate=False):
-        df = self.get_results('Level', pivot=pivot, interpolate=interpolate)
+        df = self.get_results(variable='Level', pivot=pivot, interpolate=interpolate)
         return df
     
     def get_salinities(self, pivot=True, interpolate=False):
-        df = self.get_results('Salinity', pivot=pivot, interpolate=interpolate)
+        df = self.get_results(variable='Salinity', pivot=pivot, interpolate=interpolate)
         return df
