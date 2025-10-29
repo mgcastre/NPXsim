@@ -133,7 +133,15 @@ class ThreeStepsLock:
         # 1. Calculate final equalization level
         W1, L1, H1 = self.extract_properties(upper_cham)
         W2, L2, H2 = self.extract_properties(lower_cham)
+        ## 1.1 Calculate equalization level
         Hf = hd.calc_equalization_level(A1=W1*L1, A2=W2*L2, H1=H1, H2=H2)
+        ## 1.2 Check if Hf is within the chamber's operating limits
+        H_min = self.chambers[upper_cham].get_operating_limits()[0]
+        H_max = self.chambers[lower_cham].get_operating_limits()[1]
+        if Hf <= H_min:
+            Hf = H_min # Define Hf as the min of upper cham
+        if Hf >= H_max:
+            Hf = H_max # Define Hf as the max of lower cham
         # 2. Drain upper chamber to equalization level
         self.chambers[upper_cham].drain_chamber(H_final=Hf, ts=ts)
         # 3. Fill lower chamber to equalization level
