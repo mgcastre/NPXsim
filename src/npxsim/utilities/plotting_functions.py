@@ -6,6 +6,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+# Add function to obtain colors for chambers
+def get_chamber_colors():
+    """
+    Returns: List with colors for UC, MC and LC (in that order).
+    """
+    return ['darkorange', 'green', 'royalblue']
+
 # Define function to plot simulated water levels
 def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
                       colors=['darkorange', 'green', 'royalblue'],
