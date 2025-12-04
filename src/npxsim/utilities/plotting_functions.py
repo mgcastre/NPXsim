@@ -13,13 +13,13 @@ def get_chamber_colors():
     """
     return ['darkorange', 'green', 'royalblue']
 
-# Define function to plot simulated water levels
-def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
-                      colors=['darkorange', 'green', 'royalblue'],
-                      linestyles=['-', '--', '-.', ':'], 
-                      markers=['', '', '', ''],
-                      return_fig=False, 
-                      title='default'):
+# Define function to plot simulated water levels only
+def plot_sim_water_levels(sim, lock_times, start_date, end_date, figsize=(12, 5),
+                          colors=['darkorange', 'green', 'royalblue'],
+                          linestyles=['-', '--', '-.', ':'],
+                          markers=['', '', '', ''],
+                          return_fig=False,
+                          title='default'):
     ## Initialize plot
     fig, ax = plt.subplots(figsize=figsize)
     if title == 'default':
@@ -40,15 +40,18 @@ def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
             sim.loc[:, wsb].plot(ax=ax, alpha=0.7, x_compat=True, color=colors[i], 
                                  linestyle=linestyles[j+1], lw=1.7, marker=markers[j+1])
 
-    ## Format axes
+    ## Format x-axis
     ax.set_xlabel('Time')
-    ax.set_xlim(start, end)
-    ax.set_ylabel('Water Level (m)')
+    ax.set_xlim(start_date, end_date)
     date_form = mdates.DateFormatter("%H:%M")
     ax.xaxis.set_major_formatter(date_form)
     ax.xaxis.set_tick_params(rotation=0, )
     for label in ax.get_xticklabels():
         label.set_horizontalalignment('center')
+
+    ## Format y-axis
+    ax.set_ylabel('Water Level (m)')
+    ax.set_ylim(-1, 26)
 
     ## Add legend
     ax.legend(title='Location', bbox_to_anchor=(1.0, 1.02), loc='upper left')
