@@ -61,26 +61,33 @@ def plot_water_levels(sim, lock_times, start, end, figsize=(12, 5),
         return fig
 
 
-# Define function to plot simulated and observed salinities
-def plot_salinities(obs, sim, xlims, ylims, reservoirs, lock_times, figsize=(12, 5), 
-                    colors=['darkorange', 'green', 'royalblue'], alpha_obs=0.5,
-                    styles={'Sim': '-', 'Obs': 'o'}, 
-                    return_fig=False):
+# Define function to plot simulated and observed results
+def plot_obs_sim(obs, sim, x_lims, y_lims, reservoirs, lock_times, figsize=(12, 5),
+                 colors=['darkorange', 'green', 'royalblue'], alpha_obs=0.5,
+                 styles={'Sim': '-', 'Obs': 'o'}, result_type='salinities',
+                 return_fig=False):
+    ## Create a y-label
+    if result_type == 'salinities':
+        y_label = 'Salinity (PSU)'
+    elif result_type == 'water levels':
+        y_label = 'Water Level (m)'
+    else:
+        raise ValueError("Result type must be either 'salinities' or 'water levels'.")
     ## Initialize plot
     fig, ax = plt.subplots(figsize=figsize)
-    ## Plot vertical line for when when each lockage started
+    ## Plot vertical line for when each lockage started
     for time in lock_times:
         ax.axvline(x=time, color='black', linestyle='-', alpha=0.25)
-    ## Plot salinities
+    ## Plot results
     for i, cham in enumerate(['U', 'M', 'L']):
         if reservoirs == 'Chambers':
             my_res = f'{cham}C'
             handle_labels = ['UC', 'MC', 'LC']
-            my_title = 'Observed and simulated salinities in lock chambers'
+            my_title = f'Observed and simulated {result_type} in lock chambers'
         elif reservoirs == 'Basins':
             my_res = f'{cham}BInt'
-            handle_labels = ['UIB', 'MIB', 'LIB']
-            my_title = 'Observed and simulated salinities in intermediate basins'
+            handle_labels = ['UB', 'MB', 'LB']
+            my_title = f'Observed and simulated {result_type} in intermediate basins'
         else:
             raise ValueError("Reservoirs must be either 'Chambers' or 'Basins'.")
         ### Plot simulated salinities
@@ -95,9 +102,9 @@ def plot_salinities(obs, sim, xlims, ylims, reservoirs, lock_times, figsize=(12,
     ax.set_title(my_title)
     ## Format axes
     ax.set_xlabel('Time')
-    ax.set_xlim(xlims[0], xlims[1])
-    ax.set_ylabel('Salinity (PSU)')
-    ax.set_ylim(ylims[0], ylims[1])
+    ax.set_ylabel(y_label)
+    ax.set_xlim(x_lims[0], x_lims[1])
+    ax.set_ylim(y_lims[0], y_lims[1])
     date_form = mdates.DateFormatter("%H:%M")
     ax.xaxis.set_major_formatter(date_form)
     ax.xaxis.set_tick_params(rotation=0, )
