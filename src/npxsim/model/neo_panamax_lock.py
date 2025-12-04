@@ -539,7 +539,6 @@ class NeoPanamaxLock(ThreeStepsLock):
             df = df.pivot_table(index='Date_Time', columns='Location', values=variable)
         if interpolate:
             df = df.resample('1min').mean()
-            df = df.reindex(pd.date_range(df.index[0], df.index[-1], freq='1min'))
             df = df.interpolate(method='linear', limit_area='inside')
             df = df.ffill()
         return df
