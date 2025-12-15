@@ -259,30 +259,79 @@ class NeoPanamaxLock(ThreeStepsLock):
         initial_dt_object = datetime.fromisoformat(self.operation_start_dt)
         new_dt_object = initial_dt_object + timedelta(seconds=ts_minutes*60)
         return new_dt_object.strftime("%Y-%m-%d %H:%M:%S")
-    
+
     def operate(self, operation_params, boundary_conditions):
         logger.info('LOCK OPERATIONS START')
-        for i in range(len(operation_params)):
-            this_transit = operation_params[i]
-            self.transit(this_transit, boundary_conditions[i])
-            try:
-                next_transit = operation_params[i+1]
-            except IndexError:
-                break
-            if this_transit['Direction'] != next_transit['Direction']:
-                ts = self.calc_elapsed_minutes(next_transit['TS_LockageStarts'])
 
-                if this_transit['WSB_Use_Flag']:
-                    tinit = ts - 40  # Start turnaround operation 40 minutes before next transit
-                    logger.info(f'[{self.ts_to_datetime(tinit)}] - TURNAROUND WITH BASINS STARTS')
-                    self.turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=tinit)
+        # Combine operation_params and boundary_conditions into a single DataFrame
+        ops_df = pd.DataFrame(operation_params)
+        bcs_df = pd.DataFrame(boundary_conditions)
+        transit_information = pd.concat([ops_df, bcs_df], axis=1)
+
+        # Create the helper column for consecutive blocks
+        transit_information['TransitBlock'] = transit_information['Direction'] \
+            .ne(transit_information['Direction'].shift()).cumsum()
+
+        # Get the list of groups (transit blocks)
+        grouped_data = transit_information.groupby("TransitBlock")
+        list_of_groups = list(group_df for _, group_df in grouped_data)
+
+        # Iterate over groups
+        num_groups = len(list_of_groups)
+
+        for i in range(num_groups):
+            current_group = list_of_groups[i]
+
+            # Perform all TRANSITS for the current group
+            self.perform_transits(
+                transit_group=current_group,
+                bc_keys=bcs_df.columns
+            )
+
+            # Perform TURNAROUND before moving to the next group
+            if i < num_groups-1:  # Perform for all groups EXCEPT the last one
+                next_group = list_of_groups[i+1]
+                next_direction = next_group['Direction'].iloc[0]
+                next_bcs = next_group.loc[:, bcs_df.columns].to_dict('records')[0]
+                ts = self.calc_elapsed_minutes(next_group['TS_LockageStarts'].iloc[0])
+
+                ## Check if the current or next group has WSB flag set to '1'
+                wsb_current = (current_group["WSB_Use_Flag"] == '1').any()
+                wsb_next = (next_group["WSB_Use_Flag"] == '1').any()
+
+                if wsb_current or wsb_next:
+                    t_init = ts - 40  # Start turnaround operation 40 minutes before first transit of next group
+                    logger.info(f'[{self.ts_to_datetime(t_init)}] - TURNAROUND WITH BASINS STARTS')
+                    self.turnaround(
+                        boundary_conditions=next_bcs,
+                        new_direction=next_direction,
+                        tinit=t_init
+                    )
 
                 else:
-                    tinit = ts - 30 # Start turnaround operation 30 minutes before next transit
-                    logger.info(f'[{self.ts_to_datetime(tinit)}] - TURNAROUND WITHOUT BASINS STARTS')
-                    super().turnaround(boundary_conditions[i+1], next_transit['Direction'], tinit=tinit)
+                    t_init = ts - 30  # Start turnaround operation 30 minutes before next transit
+                    logger.info(f'[{self.ts_to_datetime(t_init)}] - TURNAROUND WITHOUT BASINS STARTS')
+                    super().turnaround(
+                        boundary_conditions=next_bcs,
+                        new_direction=next_direction,
+                        tinit=t_init
+                    )
 
         logger.info('NORMAL TERMINATION OF LOCK OPERATIONS')
+
+
+    def perform_transits(self, transit_group, bc_keys):
+
+        ## Parse operation parameters and boundary conditions
+        ops_list = transit_group.drop(columns=bc_keys).to_dict('records')
+        bcs_list = transit_group.loc[:, bc_keys].to_dict('records')
+
+        ## Iterate over operations and perform transit for each one
+        for i in range(len(transit_group)):
+            self.transit(
+                operation_params=ops_list[i],
+                boundary_conditions=bcs_list[i]
+            )
     
     def transit(self, operation_params, boundary_conditions):
         # Extract transit parameters
