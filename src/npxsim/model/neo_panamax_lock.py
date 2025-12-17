@@ -295,9 +295,9 @@ class NeoPanamaxLock(ThreeStepsLock):
                 next_bcs = next_group.loc[:, bcs_df.columns].to_dict('records')[0]
                 ts = self.calc_elapsed_minutes(next_group['TS_LockageStarts'].iloc[0])
 
-                ## Check if the current or next group has WSB flag set to '1'
-                wsb_current = (current_group["WSB_Use_Flag"] == '1').any()
-                wsb_next = (next_group["WSB_Use_Flag"] == '1').any()
+                ## Check if the current or next group has WSB flag set to 1 (True)
+                wsb_current = (current_group["WSB_Flag"] == 1).any()
+                wsb_next = (next_group["WSB_Flag"] == 1).any()
 
                 if wsb_current or wsb_next:
                     t_init = ts - 40  # Start turnaround operation 40 minutes before first transit of next group
@@ -352,7 +352,7 @@ class NeoPanamaxLock(ThreeStepsLock):
         self.eqTime = operation_params['eqTime']
         # Extract lockage direction and wsb use
         direction = operation_params['Direction']
-        wsb_use = operation_params['WSBUse_Simple']
+        wsb_use = operation_params['WSB_Use_Chams']
         # Calculate initial lockage time stamp in minutes
         lockage_start_dt = operation_params['TS_LockageStarts']
         initial_time = self.calc_elapsed_minutes(lockage_start_dt)

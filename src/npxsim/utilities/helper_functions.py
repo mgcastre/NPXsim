@@ -116,9 +116,8 @@ def prepare_operation_parameters(lock_operations_df):
                 'LH3': item['transitTimeLH3'],
                 'LH4': item['transitTimeLH4']
             },
-            'WSB_Use_Flag': item['WSBasins'],
-            'WSB_All_Flag': item['WSB_All_Flag'],
-            'WSBUse_Simple': {
+            'WSB_Flag': item['WSBasins'],
+            'WSB_Use_Chams': {
                 'UC': item['UCWSBs'],
                 'MC': item['MCWSBs'],
                 'LC': item['LCWSBs']
