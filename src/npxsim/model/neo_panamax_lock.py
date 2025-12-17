@@ -86,6 +86,20 @@ class NeoPanamaxLock(ThreeStepsLock):
                 my_key = f'{cham[0]}B{basin}'
                 initial_levels[my_key] = operational_levels[my_key][b_level]
         return initial_levels
+
+    def get_operating_limits(self) -> dict:
+        operating_limits = {}
+        for cham in ['UC', 'MC', 'LC']:
+            operating_limits[cham] = (
+                self.chambers[cham].H_min,
+                self.chambers[cham].H_max
+            )
+            for basin in ['Top', 'Int', 'Bot']:
+                operating_limits[f'{cham[0]}B{basin}'] = (
+                    self.basins[cham][basin].H_min,
+                    self.basins[cham][basin].H_max
+                )
+        return operating_limits
     
     def set_initial_conditions(self, boundary_conditions, salinities, 
                                direction, operation_start_dt, 
