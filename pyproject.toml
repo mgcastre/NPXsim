@@ -1,6 +1,6 @@
 [project]
 name = "npxsim"
-version = "0.9.2"
+version = "0.9.3"
 description = "Add your description here"
 readme = "README.md"
 authors = [
