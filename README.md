@@ -1,5 +1,6 @@
 # NPXsim
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18362372.svg)](https://doi.org/10.5281/zenodo.18362372)
 [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -48,6 +49,12 @@ source .venv/bin/activate
 ## 📖 Basic Usage
 
 A minimal code example demonstrating how to initialize and run the NPXsim model is provided in the `examples` folder.
+
+## 🎓 Citation
+
+If you use this software in your research, please cite the Zenodo DOI:
+
+> Castrellón, M. G. (2026). NPXsim: A tool to simulate saltwater intrusion through the Neo-Panamax locks. Zenodo. https://doi.org/10.5281/zenodo.18362372
 
 ## 📄 License
 
