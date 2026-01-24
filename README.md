@@ -1,6 +1,7 @@
 # NPXsim
 
 [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 The **Neo-Panamax lock simulator (NPXsim)** is a model to simulate saltwater intrusion through the Neo-Panamax (NPX) locks of the Panama Canal. It consists of a mass balance that represents the exchanges of water and salt that take place between lock chambers and water saving basins (WSBs) as a result of vessel transit. 
 
@@ -47,6 +48,10 @@ source .venv/bin/activate
 ## 📖 Basic Usage
 
 A minimal code example demonstrating how to initialize and run the NPXsim model is provided in the `examples` folder.
+
+## 📄 License
+
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 ---
 
